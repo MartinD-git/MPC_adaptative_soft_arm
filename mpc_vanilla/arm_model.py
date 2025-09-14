@@ -1,7 +1,7 @@
 import casadi as ca
 import numpy as np
 
-from utils import pcc_forward_kinematics, pcc_dynamics, shape_function
+from .utils import pcc_forward_kinematics, pcc_dynamics, shape_function
 
 class PCCSoftArm:
     def __init__(self, L_segs, m, g_vec, d_eq, K):
@@ -25,7 +25,7 @@ class PCCSoftArm:
         self.shape_func = shape_function(q, self.L_segs, tips, s)
 
         # compute the dynamics
-        self.dynamics_func = pcc_dynamics(q, q_dot, self.L_segs, jacobians)
+        self.dynamics_func = pcc_dynamics(q, q_dot, self.L_segs, tips, jacobians, s)
         print("Dynamics done")
 
 

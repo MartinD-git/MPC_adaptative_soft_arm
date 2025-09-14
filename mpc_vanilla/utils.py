@@ -9,13 +9,12 @@ def pcc_segment_transform(s_var, phi, theta, L):
 
     eps=1e-8
 
-    if ca.fabs(theta)<eps:
-        theta=eps
-    
+    theta = ca.if_else(ca.fabs(theta)>eps, theta, eps) #avoid division by 0 by clamping
+
     #Translation
     tx = L * ca.cos(phi) * (1 - ca.cos(s_var*theta)) / theta
     ty = L * ca.sin(phi) * (1 - ca.cos(s_var*theta)) / theta
-    tz = L * ca.sin(s_var*theta) / theta, L * s_var
+    tz = L * ca.sin(s_var*theta) / theta
 
     t_c = ca.vertcat(tx, ty, tz)
 
@@ -56,7 +55,7 @@ def pcc_forward_kinematics(s, q, L_segs):
 
     return [p1, p2, p3], [J1,J2,J3]
 
-def gauss_legendre(result,integrands):
+def gauss_legendre(result,integrand, s):
     '''
     Perform Gauss-Legendre quadrature on the provided integrands to go faster than symbolic integration.
     '''
@@ -73,11 +72,8 @@ def gauss_legendre(result,integrands):
     for k in range(num_points):
         s_k = s_eval_points[k]
         w_k = s_weights[k]
-        
-        s_sub = lambda expr: ca.substitute(expr, s, s_k)
-        
-        for integrand in integrands:
-            result += s_sub(integrand) * w_k
+
+        result += ca.substitute(integrand, s, s_k) * w_k
 
     return result
 
@@ -98,9 +94,9 @@ def shape_function(q, L_segs, tips, s):
     P2 = ca.horzcat(*points2) 
     P3 = ca.horzcat(*points3)
 
-    return ca.Function('arm_shape_func', [q, L_segs], [P1, P2, P3])
+    return ca.Function('arm_shape_func', [q], [P1, P2, P3])
 
-def pcc_dynamics(q, q_dot,  L_segs, jacobians):
+def pcc_dynamics(q, q_dot,  L_segs, tips, jacobians, s):
     m = ca.SX.sym('m')
     M = ca.SX.zeros(6, 6)
     g_vec = ca.SX.sym('g', 3)
@@ -114,28 +110,28 @@ def pcc_dynamics(q, q_dot,  L_segs, jacobians):
 
     G_integrand = -m * sum(ca.dot(g_vec, tip) for tip in tips)
 
-    D_integrand = sum((J.T @ J) * d for (J,d) in zip(J,d_eq))
+    D_integrand = (jacobians[0].T @ jacobians[0]) * d_eq[0]+(jacobians[1].T @ jacobians[1]) * d_eq[1]+(jacobians[2].T @ jacobians[2]) * d_eq[2]
 
-    M = gauss_legendre(M, M_integrand)
+    M = gauss_legendre(M, M_integrand, s)
 
-    G_pot = gauss_legendre(G_pot, G_integrand)
+    G_pot = gauss_legendre(G_pot, G_integrand, s)
     G = ca.gradient(G_pot, q)
 
-    D = gauss_legendre(D, D_integrand)
+    D = gauss_legendre(D, D_integrand, s)
 
-    M_func = ca.Function('M_func', [q, L_segs, m], [M])
-    G_func = ca.Function('G_func', [q, L_segs, m, g_vec], [G])
-    D_func = ca.Function('D_func', [q, L_segs, d_eq], [D])
+    M_func = ca.Function('M_func', [q, m], [M])
+    G_func = ca.Function('G_func', [q, m, g_vec], [G])
+    D_func = ca.Function('D_func', [q, d_eq], [D])
 
     # Coriolis C
-    M_q = M_func(q, L_segs, m)
+    M_q = M_func(q, m)
     M_dot_q_dot = ca.jtimes(M_q, q, q_dot) # This calculates (dM/dq)*q_dot
 
     KE = 0.5 * q_dot.T @ M_q @ q_dot
     KE_grad = ca.gradient(KE, q)
 
     c_vec = M_dot_q_dot @ q_dot - KE_grad
-    C_vec_func = ca.Function('C_vec_func', [q, q_dot, L_segs, m], [c_vec])
+    C_vec_func = ca.Function('C_vec_func', [q, q_dot, m], [c_vec])
 
     x = ca.SX.sym('x', 12)
     u = ca.SX.sym('u', 6)
@@ -145,13 +141,13 @@ def pcc_dynamics(q, q_dot,  L_segs, jacobians):
     q_dot_from_x = x[6:]
 
     # Calculate q_ddot
-    M_term= M_func(q_from_x, L_segs, m)+1e-8* ca.SX.eye(6)
-    C_term= C_vec_func(q_from_x, q_dot_from_x, L_segs, m)
-    G_term= G_func(q_from_x, L_segs, m, g_vec)
-    D_term= D_func(q_from_x, L_segs, d_eq) @ q_dot_from_x
+    M_term= M_func(q_from_x, m)+1e-8* ca.SX.eye(6)
+    C_term= C_vec_func(q_from_x, q_dot_from_x, m)
+    G_term= G_func(q_from_x, m, g_vec)
+    D_term= D_func(q_from_x, d_eq) @ q_dot_from_x
     K_term= K @ q_from_x
 
     q_ddot = ca.solve(M_term , u - C_term - G_term - D_term - K_term) #Ax=b
     x_dot = ca.vertcat(q_dot_from_x, q_ddot)
 
-    return ca.Function('f', [x, u, L_segs, m, g_vec,d_eq,K], [x_dot])
+    return ca.Function('f', [x, u, m, g_vec,d_eq,K], [x_dot])
