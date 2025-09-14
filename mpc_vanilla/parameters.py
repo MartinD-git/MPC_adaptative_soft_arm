@@ -1,6 +1,6 @@
 import numpy as np
 
-def get_robot_params():
+def arm_parameters():
     L = 0.3
     d =0.1/L
     return {
@@ -9,6 +9,22 @@ def get_robot_params():
         'g': [0, 0, -9.81],# Gravity vector m/s^2
         'd_eq': [d, d, d],
         'K': np.diag([0, 0.2, 0, 0.6, 0, 0.2])
+    }
+
+def mpc_parameters():
+    q=15
+    r=1
+    return {
+        'N': 15, #Horizon length
+        'Q': np.diag([
+            q,
+            q,
+            q,
+            q,
+            q,
+            q
+        ]),
+        'R': np.diag([r,r,r,r,r,r])
     }
 
 def get_simulation_params():
