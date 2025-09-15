@@ -9,7 +9,7 @@ def pcc_segment_transform(s_var, phi, theta, L):
 
     eps=1e-8
 
-    theta = ca.if_else(ca.fabs(theta)>eps, theta, eps) #avoid division by 0 by clamping
+    theta = ca.if_else(ca.fabs(theta)>eps, theta, ca.sign(theta)*eps) #avoid division by 0 by clamping
 
     #Translation
     tx = L * ca.cos(phi) * (1 - ca.cos(s_var*theta)) / theta
@@ -165,4 +165,4 @@ def dynamics2integrator(pcc_arm,dt):
     return ca.integrator('F', 'cvodes', ode, 0.0, dt)
     #F = F.expand() # may be faster but needs more memory 
 
-    
+

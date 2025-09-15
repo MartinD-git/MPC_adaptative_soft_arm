@@ -1,6 +1,6 @@
 import casadi as ca
 
-from .utils import pcc_forward_kinematics, pcc_dynamics, shape_function, dynamics2integrator
+from utils import pcc_forward_kinematics, pcc_dynamics, shape_function, dynamics2integrator
 
 class PCCSoftArm:
     def __init__(self, L_segs, m, d_eq, K):
@@ -42,9 +42,6 @@ class PCCSoftArm:
         p=ca.vertcat(u, self.m, self.d_eq, ca.reshape(self.K, 36, 1))
         # simulate one step
         self.current_state = self.integrator(x0=self.current_state, p=p)['xf'].full().flatten()
-
-        self.history_u
-        self.history.append(self.current_state)
 
         return self.current_state
     
