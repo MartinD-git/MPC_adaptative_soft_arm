@@ -5,7 +5,7 @@ This script defines basic functions used across the project.
 import casadi as ca
 import numpy as np
 
-def pcc_segment_transform(s_var, phi, theta, L): 
+'''def pcc_segment_transform(s_var, phi, theta, L): 
 
     eps=1e-8
 
@@ -27,6 +27,48 @@ def pcc_segment_transform(s_var, phi, theta, L):
 
     T = ca.vertcat(ca.horzcat(R_c, t_c), ca.horzcat(0,0,0,1))
 
+    return T'''
+def sinc_cosc(u, eps=1e-4):
+    # Precompute powers (integers => fast)
+    u2 = u*u
+    u4 = u2*u2
+    u6 = u4*u2
+    small = ca.fabs(u) <= eps
+
+    # sinc(u)  = 1 - u^2/6 + u^4/120
+    sinc_ser = 1 - (u2*(1/6.0)) + (u4*(1/120.0))
+    # cosc(u)  = u/2 - u^3/24 + u^5/720
+    cosc_ser = (u*(1/2.0)) - (u*u2*(1/24.0)) + (u4*u*(1/720.0))
+
+    # Exact away from 0
+    sinc_ex  = ca.sin(u) / u
+    cosc_ex  = (1 - ca.cos(u)) / u
+
+    sinc_val = ca.if_else(small, sinc_ser, sinc_ex)
+    cosc_val = ca.if_else(small, cosc_ser, cosc_ex)
+    return sinc_val, cosc_val
+
+def pcc_segment_transform(s_var, phi, theta, L, eps=1e-4):
+    u  = s_var*theta
+    cp = ca.cos(phi); sp = ca.sin(phi)
+    cu = ca.cos(u);   su = ca.sin(u)
+
+    sinc_u, cosc_u = sinc_cosc(u, eps)
+
+    # Translation: no /theta anywhere
+    tx = L * cp * s_var * cosc_u
+    ty = L * sp * s_var * cosc_u
+    tz = L *  s_var * sinc_u
+    t  = ca.vertcat(tx, ty, tz)
+
+    # Rotation (already division-free)
+    R = ca.vertcat(
+        ca.horzcat(cp*cp*(cu-1)+1,  sp*cp*(cu-1),        cp*su),
+        ca.horzcat(sp*cp*(cu-1),    cp*cp*(1-cu)+cu,     sp*su),
+        ca.horzcat(-cp*su,          -sp*su,              cu)
+    )
+
+    T = ca.vertcat(ca.horzcat(R, t), ca.horzcat(0,0,0,1))
     return T
 
 def pcc_forward_kinematics(s, q, L_segs):
@@ -59,7 +101,7 @@ def gauss_legendre(result,integrand, s):
     '''
     Perform Gauss-Legendre quadrature on the provided integrands to go faster than symbolic integration.
     '''
-    num_points = 10 # Arbitrary number
+    num_points = 6 # Arbitrary number
     gl_points, gl_weights = np.polynomial.legendre.leggauss(num_points)
     
     # Our integral is over [0, 1], so we need to scale the points and weights
@@ -150,7 +192,7 @@ def pcc_dynamics(q, q_dot, tips, jacobians, s):
 
     return ca.Function('f', [x, u, m,d_eq,K], [x_dot])
 
-def dynamics2integrator(pcc_arm,dt):
+'''def dynamics2integrator(pcc_arm,dt):
     # Create integrator
     x_int  = ca.MX.sym('x', 12)
     u_int  = ca.MX.sym('u', 6)
@@ -162,7 +204,28 @@ def dynamics2integrator(pcc_arm,dt):
 
     ode  = {'x': x_int, 'p': ca.vertcat(u_int, m_int, d_int, ca.reshape(K_int, 36, 1)), 'ode': xdot}
 
-    return ca.integrator('F', 'cvodes', ode, 0.0, dt)
-    #F = F.expand() # may be faster but needs more memory 
+    return ca.integrator('F', 'cvodes', ode, 0.0, dt)'''
+
+def dynamics2integrator(pcc_arm):
+    # Pure-CasADi RK4 map: xf = F(x0, p)
+    x0 = ca.MX.sym('x0', 12)
+    p  = ca.MX.sym('p', 46)  # [u(6), m(1), d(3), vec(K)(36)] = 46
+    dt=pcc_arm.dt
+
+    u  = p[0:6]
+    m  = p[6]
+    d  = p[7:10]
+    K  = ca.reshape(p[10:], 6, 6)
+
+    f = pcc_arm.dynamics_func  # f(x, u, m, d, K) -> xdot
+
+    k1 = f(x0,                 u, m, d, K)
+    k2 = f(x0 + 0.5*dt*k1,     u, m, d, K)
+    k3 = f(x0 + 0.5*dt*k2,     u, m, d, K)
+    k4 = f(x0 + dt*k3,         u, m, d, K)
+    xf = x0 + (dt/6.0)*(k1 + 2*k2 + 2*k3 + k4)
+
+    # Make it look like a CasADi "integrator" call-site: F(x0=..., p=...)['xf']
+    return ca.Function('F', [x0, p], [xf], ['x0', 'p'], ['xf'])
 
 

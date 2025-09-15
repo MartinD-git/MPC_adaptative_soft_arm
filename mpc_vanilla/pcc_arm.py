@@ -33,9 +33,9 @@ class PCCSoftArm:
         print("Dynamics done")
 
     def create_integrator(self, dt):
-        # create inegrator
-        self.integrator = dynamics2integrator(self,dt)
         self.dt=dt
+        # create inegrator
+        self.integrator = dynamics2integrator(self)
         print("Integrator done")
 
     def next_step(self, u):

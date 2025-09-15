@@ -61,8 +61,37 @@ def main():
 
     #solver
     opti.solver(
-        'ipopt'
+        'ipopt',
+        {
+            # CasADi front-end
+            'expand': True,               # inline all user Functions (uses more RAM)
+            'jit': True,                  # compile generated C
+            'jit_options': {'flags': '-O3 -march=native'},  # if a compiler is available
+
+            # Ipopt back-end
+            'ipopt': {
+                'print_level': 0, 'sb': 'yes',
+                # use a good-accuracy target (tighten later if needed)
+                'tol': 1e-3, 'acceptable_tol': 5e-3, 'acceptable_iter': 3,
+
+                # try exact Hessian first (fewer iterations). If slower, switch to L-BFGS (see below).
+                'hessian_approximation': 'exact',
+
+                # linear solver (keep MUMPS, but give it memory)
+                'linear_solver': 'mumps',
+                'mumps_mem_percent': 5000,    # allow ~50x default memory
+                'mumps_pivtol': 1e-8,         # stable & fewer refactorizations
+                'mumps_pivot_order': 2,       # often faster on large sparse
+
+                # warm-start friendliness
+                'warm_start_init_point': 'yes',
+                'bound_mult_init_method': 'mu-based',
+                'warm_start_bound_push': 1e-6,
+                'warm_start_mult_bound_push': 1e-6,
+            }
+        }
     )
+
 
     # Simu loop
     num_iter = int(SIM_PARAMETERS['T']/SIM_PARAMETERS['dt'])
@@ -91,6 +120,26 @@ def main():
         
         # solve the problem
         sol = opti.solve()
+
+        # WARM START OPTI
+        u_sol = sol.value(u)
+        X_sol = sol.value(X)
+
+        # predict one step to fill the last state (use last control)
+        u_last = u_sol[:, -1]
+        p_last = np.hstack([u_last, ARM_PARAMETERS['m'],
+                            ARM_PARAMETERS['d_eq'],
+                            ARM_PARAMETERS['K'].reshape(-1)])
+        x_pred = F(x0=X_sol[:, -1], p=p_last)['xf'].full().flatten()
+
+        # shifted X init
+        X_init = np.hstack([X_sol[:, 1:], x_pred.reshape(-1, 1)])
+        opti.set_initial(X, X_init)
+
+        # warm-start duals (Ipopt)
+        opti.set_initial(opti.lam_g, sol.value(opti.lam_g))
+        opti.set_initial(opti.lam_x, sol.value(opti.lam_x))
+        # WARM START OPTI
 
         # apply the first control input to the real system
         pcc_arm.next_step(sol.value(u)[:,0])
