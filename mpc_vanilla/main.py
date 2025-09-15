@@ -60,7 +60,14 @@ def main():
         opti.subject_to(opti.bounded(-MPC_PARAMETERS['u_bound'], u[:, i], MPC_PARAMETERS['u_bound'])) # input constraints
 
     #solver
-    opti.solver('ipopt')
+    opti.solver(
+        'ipopt',
+        {"print_time": False},
+        {
+            "ipopt.print_level": 3,
+            "ipopt.sb": "yes" 
+        }
+    )
 
     # Simu loop
     num_iter = int(SIM_PARAMETERS['T']/SIM_PARAMETERS['dt'])
@@ -82,6 +89,7 @@ def main():
         opti.set_value(K_par, ARM_PARAMETERS['K'])
 
         if t == 0:
+            opti.set_initial(X, np.tile(pcc_arm.current_state.reshape(-1, 1), (1, N+1)))
             opti.set_initial(u, np.zeros((6, N)))
         else:
             opti.set_initial(u, np.hstack((sol.value(u)[:,1:], sol.value(u)[:,-1:])))
