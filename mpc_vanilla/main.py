@@ -61,12 +61,7 @@ def main():
 
     #solver
     opti.solver(
-        'ipopt',
-        {"print_time": False},
-        {
-            "ipopt.print_level": 3,
-            "ipopt.sb": "yes" 
-        }
+        'ipopt'
     )
 
     # Simu loop

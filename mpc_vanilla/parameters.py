@@ -11,11 +11,11 @@ ARM_PARAMETERS = {
 }
 
 MPC_PARAMETERS = {
-    "N": 30,
+    "N": 20,
     "Q":  np.diag([15]*6 + [1]*6),
     "Qf": np.diag([30]*6 + [2]*6),  # stronger terminal weight helps convergence
     "R": np.diag([1, 1, 1, 1, 1, 1]),
-    "u_bound": 5,
+    "u_bound": 50,
 }
 
 SIM_PARAMETERS = {
