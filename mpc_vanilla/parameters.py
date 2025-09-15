@@ -1,42 +1,28 @@
 import numpy as np
 
-def arm_parameters():
-    L = 0.3
-    d =0.1/L
-    return {
-        'L_segs': [L, L, L],  # Length of each segment m
-        'm': 0.5,# Mass per unit length kg/m
-        'g': [0, 0, -9.81],# Gravity vector m/s^2
-        'd_eq': [d, d, d],
-        'K': np.diag([0, 0.2, 0, 0.6, 0, 0.2])
-    }
+L = 0.3
+d = 0.1 / L
 
-def mpc_parameters():
-    q=15
-    r=1
-    return {
-        'N': 15, #Horizon length
-        'Q': np.diag([
-            q,
-            q,
-            q,
-            q,
-            q,
-            q
-        ]),
-        'R': np.diag([r,r,r,r,r,r])
-    }
+ARM_PARAMETERS = {
+    "L_segs": [L, L, L],
+    "m": 0.5,
+    "d_eq": [d, d, d],
+    "K": np.diag([0, 0.2, 0, 0.6, 0, 0.2]),
+}
 
-def get_simulation_params():
-    return {
-        'dt': 0.01, # s 0.05
-        'T': 10, # Total simu time s
-        'x0': np.array([
-            # q0:
-            np.deg2rad(0), np.deg2rad(90),
-            np.deg2rad(0),  np.deg2rad(-120),
-            np.deg2rad(0),  np.deg2rad(120),
-            # q_dot0: 
-            0, 0, 0, 0, 0, 0
-        ])
-    }
+MPC_PARAMETERS = {
+    "N": 15,
+    "Q": np.diag([15, 15, 15, 15, 15, 15]),
+    "Qf": np.diag([15, 15, 15, 15, 15, 15]),
+    "R": np.diag([1, 1, 1, 1, 1, 1]),
+    "u_bound": 5,
+}
+
+SIM_PARAMETERS = {
+    "dt": 0.01,
+    "T": 10,
+    "x0": np.array([
+        0, np.deg2rad(90), 0, np.deg2rad(-120), 0, np.deg2rad(120),
+        0, 0, 0, 0, 0, 0
+    ]),
+}

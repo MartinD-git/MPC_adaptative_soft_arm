@@ -61,8 +61,6 @@ def gauss_legendre(result,integrand, s):
     '''
     num_points = 10 # Arbitrary number
     gl_points, gl_weights = np.polynomial.legendre.leggauss(num_points)
-
-    s_sub = lambda expr: ca.substitute(expr, s, s_k) #helper function to substitute s by the gl point
     
     # Our integral is over [0, 1], so we need to scale the points and weights
     # Change of variables: s = (t+1)/2, where t is in [-1, 1]. Then ds = dt/2.
@@ -77,7 +75,7 @@ def gauss_legendre(result,integrand, s):
 
     return result
 
-def shape_function(q, L_segs, tips, s):
+def shape_function(q, tips, s):
     '''
     Compute a list of points along the robot shape for visualization.
     '''
@@ -96,10 +94,10 @@ def shape_function(q, L_segs, tips, s):
 
     return ca.Function('arm_shape_func', [q], [P1, P2, P3])
 
-def pcc_dynamics(q, q_dot,  L_segs, tips, jacobians, s):
+def pcc_dynamics(q, q_dot, tips, jacobians, s):
     m = ca.SX.sym('m')
     M = ca.SX.zeros(6, 6)
-    g_vec = ca.SX.sym('g', 3)
+    g_vec = np.array([0.0, 0.0, -9.81])
     G_pot = 0
     d_eq = ca.SX.sym('d_eq', 3)
     D = ca.SX.zeros(6, 6)
@@ -120,7 +118,7 @@ def pcc_dynamics(q, q_dot,  L_segs, tips, jacobians, s):
     D = gauss_legendre(D, D_integrand, s)
 
     M_func = ca.Function('M_func', [q, m], [M])
-    G_func = ca.Function('G_func', [q, m, g_vec], [G])
+    G_func = ca.Function('G_func', [q, m], [G])
     D_func = ca.Function('D_func', [q, d_eq], [D])
 
     # Coriolis C
@@ -143,11 +141,26 @@ def pcc_dynamics(q, q_dot,  L_segs, tips, jacobians, s):
     # Calculate q_ddot
     M_term= M_func(q_from_x, m)+1e-8* ca.SX.eye(6)
     C_term= C_vec_func(q_from_x, q_dot_from_x, m)
-    G_term= G_func(q_from_x, m, g_vec)
+    G_term= G_func(q_from_x, m)
     D_term= D_func(q_from_x, d_eq) @ q_dot_from_x
     K_term= K @ q_from_x
 
     q_ddot = ca.solve(M_term , u - C_term - G_term - D_term - K_term) #Ax=b
     x_dot = ca.vertcat(q_dot_from_x, q_ddot)
 
-    return ca.Function('f', [x, u, m, g_vec,d_eq,K], [x_dot])
+    return ca.Function('f', [x, u, m,d_eq,K], [x_dot])
+
+def dynamics2integrator(pcc_arm,dt):
+    # Create integrator
+    x_int  = ca.MX.sym('x', 12)
+    u_int  = ca.MX.sym('u', 6)
+    m_int  = ca.MX.sym('m')
+    d_int  = ca.MX.sym('d_eq', 3)
+    K_int  = ca.MX.sym('K', 6, 6)
+
+    xdot = pcc_arm.dynamics_func(x_int, u_int, m_int, d_int, K_int)
+
+    ode  = {'x': x_int, 'p': ca.vertcat(u_int, m_int, d_int, ca.reshape(K_int, 36, 1)), 'ode': xdot}
+
+    return ca.integrator('F', 'cvodes', ode, 0.0, dt)
+    #F = F.expand() # may be faster but needs more memory 

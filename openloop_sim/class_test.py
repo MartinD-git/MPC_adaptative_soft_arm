@@ -1,3 +1,5 @@
+# run with python -m openloop_sim.class_test
+
 import casadi as ca
 import numpy as np
 import matplotlib.pyplot as plt
