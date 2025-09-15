@@ -1,12 +1,16 @@
 import casadi as ca
 import numpy as np
+from tqdm import tqdm
+
 
 # Parameters
 from pcc_arm import PCCSoftArm
 from parameters import ARM_PARAMETERS, MPC_PARAMETERS, SIM_PARAMETERS
+from visualisation import history_plot
 
 def main():
     N=MPC_PARAMETERS['N']
+    
 
     pcc_arm = PCCSoftArm(
         L_segs = ARM_PARAMETERS['L_segs'],
@@ -54,8 +58,8 @@ def main():
     opti.solver('ipopt')
 
     # Simu loop
-    for t in range(int(SIM_PARAMETERS['T']/SIM_PARAMETERS['dt'])):
-        print(f"Time: {t*SIM_PARAMETERS['dt']:.2f}s / {SIM_PARAMETERS['T']}s", end='\r')
+    num_iter = int(SIM_PARAMETERS['T']/SIM_PARAMETERS['dt'])
+    for t in tqdm(range(num_iter), desc="MPC loop", unit="s",unit_scale=SIM_PARAMETERS['dt']):
 
         # set the goal
         if t*SIM_PARAMETERS['dt'] > SIM_PARAMETERS['T']/3:
@@ -87,8 +91,7 @@ def main():
 
         pcc_arm.log_history(sol.value(u)[:,0],q_goal_value)
 
-    print("Finished ")
-
+    history_plot(pcc_arm)
 
 if __name__ == "__main__":
     main()

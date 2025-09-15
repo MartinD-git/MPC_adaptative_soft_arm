@@ -164,3 +164,5 @@ def dynamics2integrator(pcc_arm,dt):
 
     return ca.integrator('F', 'cvodes', ode, 0.0, dt)
     #F = F.expand() # may be faster but needs more memory 
+
+    
