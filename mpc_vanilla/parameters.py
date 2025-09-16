@@ -1,7 +1,7 @@
 import numpy as np
 
-L = 0.3
-d = 0.1 / L
+L = 0.5
+d = 2 / L
 
 ARM_PARAMETERS = {
     "L_segs": [L, L, L],

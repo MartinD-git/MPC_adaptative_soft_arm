@@ -2,6 +2,7 @@ import casadi as ca
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
+from tqdm import tqdm
 
 # parameters and functions from other files
 from sim_param import get_robot_params, get_simulation_params
@@ -56,7 +57,7 @@ p_params = ca.vertcat(
 
 # The simulation loop
 num_steps = int(sim_params['T'] / sim_params['dt'])
-for step in range(num_steps):
+for step in tqdm(range(num_steps), desc="Simulation Steps"):
     res = integrator(x0=x_current, p=p_params)
     x_current = res['xf'].full().flatten() # .full().flatten() converts CasADi DM to numpy 1d array
     

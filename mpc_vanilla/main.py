@@ -19,7 +19,6 @@ def main():
         K = ARM_PARAMETERS['K']
     )
     pcc_arm.current_state=SIM_PARAMETERS['x0']
-    pcc_arm.history.append(pcc_arm.current_state)
 
     opti= ca.Opti()
 
@@ -70,11 +69,14 @@ def main():
                 'tol': 1e-3,
                 'acceptable_tol': 5e-3,
                 'acceptable_iter': 3,
-                'max_iter': 80,
                 'mu_strategy': 'adaptive',
                 'hessian_approximation': 'limited-memory',
-                'limited_memory_max_history': 50,  # use RAM to converge in fewer iters
-                'linear_solver': 'mumps',           # good default everywhere
+                'limited_memory_max_history': 100,     # default is 6; you had 50
+                'limited_memory_initialization': 'scalar2',
+                'linear_solver': 'mumps',
+                'mumps_mem_percent': 5000,             # allow big workspace
+                'mumps_pivtol': 1e-6,
+                'mumps_pivtolmax': 1e-1,
                 'warm_start_init_point': 'yes',
                 'bound_mult_init_method': 'mu-based',
                 'warm_start_bound_push': 1e-6,
