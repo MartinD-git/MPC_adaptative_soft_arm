@@ -37,7 +37,7 @@ def main():
     # Create integrator
     pcc_arm.create_integrator(SIM_PARAMETERS['dt'])
     F = pcc_arm.integrator
-    F = F.expand() # may be faster but needs more memory 
+    #F = F.expand() # may be faster but needs more memory 
 
     # Objective
     objective = 0
@@ -63,31 +63,22 @@ def main():
     opti.solver(
         'ipopt',
         {
-            # CasADi front-end
-            'expand': True,               # inline all user Functions (uses more RAM)
-            'jit': True,                  # compile generated C
-            'jit_options': {'flags': '-O3 -march=native'},  # if a compiler is available
-
-            # Ipopt back-end
+            'expand': True,         # inline/simplify once (uses RAM, speeds eval)
+            'jit': False,           # avoid long compile/“freeze” on Windows
             'ipopt': {
-                'print_level': 0, 'sb': 'yes',
-                # use a good-accuracy target (tighten later if needed)
-                'tol': 1e-3, 'acceptable_tol': 5e-3, 'acceptable_iter': 3,
-
-                # try exact Hessian first (fewer iterations). If slower, switch to L-BFGS (see below).
-                'hessian_approximation': 'exact',
-
-                # linear solver (keep MUMPS, but give it memory)
-                'linear_solver': 'mumps',
-                'mumps_mem_percent': 5000,    # allow ~50x default memory
-                'mumps_pivtol': 1e-8,         # stable & fewer refactorizations
-                'mumps_pivot_order': 2,       # often faster on large sparse
-
-                # warm-start friendliness
+                'print_level': 0,   # so you SEE iterations; change to 0 once happy
+                'tol': 1e-3,
+                'acceptable_tol': 5e-3,
+                'acceptable_iter': 3,
+                'max_iter': 80,
+                'mu_strategy': 'adaptive',
+                'hessian_approximation': 'limited-memory',
+                'limited_memory_max_history': 50,  # use RAM to converge in fewer iters
+                'linear_solver': 'mumps',           # good default everywhere
                 'warm_start_init_point': 'yes',
                 'bound_mult_init_method': 'mu-based',
                 'warm_start_bound_push': 1e-6,
-                'warm_start_mult_bound_push': 1e-6,
+                'warm_start_mult_bound_push': 1e-6
             }
         }
     )
@@ -138,7 +129,6 @@ def main():
 
         # warm-start duals (Ipopt)
         opti.set_initial(opti.lam_g, sol.value(opti.lam_g))
-        opti.set_initial(opti.lam_x, sol.value(opti.lam_x))
         # WARM START OPTI
 
         # apply the first control input to the real system

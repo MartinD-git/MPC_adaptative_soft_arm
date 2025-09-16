@@ -187,7 +187,15 @@ def pcc_dynamics(q, q_dot, tips, jacobians, s):
     D_term= D_func(q_from_x, d_eq) @ q_dot_from_x
     K_term= K @ q_from_x
 
-    q_ddot = ca.solve(M_term , u - C_term - G_term - D_term - K_term) #Ax=b
+    #q_ddot = ca.solve(M_term , u - C_term - G_term - D_term - K_term) #Ax=b
+
+    #added for speed
+    rhs = u - C_term - G_term - D_term - K_term
+
+    # Robust SPD solve via Cholesky (SX-safe)
+    R = ca.chol(M_term)                    # M_term = R.T @ R
+    y = ca.solve(R.T, rhs)                 # R^T y = rhs
+    q_ddot = ca.solve(R, y)                # R q_ddot = y
     x_dot = ca.vertcat(q_dot_from_x, q_ddot)
 
     return ca.Function('f', [x, u, m,d_eq,K], [x_dot])
