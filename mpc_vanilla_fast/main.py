@@ -65,7 +65,6 @@ def main():
         'ipopt',
         {
             'expand': True,        # inline/simplify once (uses RAM, speeds eval)
-            'jit': False,          
             'ipopt': {
                 'print_level': 0,
                 'tol': 1e-3,

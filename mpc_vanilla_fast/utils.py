@@ -202,6 +202,20 @@ def pcc_dynamics(q, q_dot, tips, jacobians, s):
 
     return ca.Function('pcc_f', [x, u, m,d_eq,K], [x_dot])
 
+'''def dynamics2integrator(pcc_arm,dt):
+    # Create integrator
+    x_int  = ca.MX.sym('x', 12)
+    u_int  = ca.MX.sym('u', 6)
+    m_int  = ca.MX.sym('m')
+    d_int  = ca.MX.sym('d_eq', 3)
+    K_int  = ca.MX.sym('K', 6, 6)
+
+    xdot = pcc_arm.dynamics_func(x_int, u_int, m_int, d_int, K_int)
+
+    ode  = {'x': x_int, 'p': ca.vertcat(u_int, m_int, d_int, ca.reshape(K_int, 36, 1)), 'ode': xdot}
+
+    return ca.integrator('F', 'cvodes', ode, 0.0, dt)'''
+
 def dynamics2integrator(pcc_arm):
     # Pure-CasADi RK4 map: xf = F(x0, p)
     x0 = ca.MX.sym('x0', 12)
