@@ -2,13 +2,16 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 
-def history_plot(pcc_arm):
+def history_plot(pcc_arm,u_bound):
     history = np.array(pcc_arm.history)
     history_d = np.array(pcc_arm.history_d)
     history_u = np.array(pcc_arm.history_u)
+    np.savetxt("history_u.csv", history_u, delimiter=",")
+    np.savetxt("history_d.csv", history_d, delimiter=",")
+    np.savetxt("history_angles.csv", history, delimiter=",")
 
     M_raw = np.hstack((history, history_d, history_u)).T  # (30, T)
-    M = normalize(M_raw)
+    M = normalize(M_raw,u_bound,pcc_arm.num_segments)
     time = np.arange(history.shape[0]) * pcc_arm.dt
 
     for i in range(pcc_arm.num_segments):
@@ -100,11 +103,18 @@ def history_plot(pcc_arm):
     np.savetxt("history.csv", M_raw, delimiter=",")
     print("saved to csv")'''
 
-def normalize(M, eps=1e-8):
+def normalize(M,u_bound,num_segments, eps=1e-8):
     max_abs = np.max(np.abs(M), axis=1, keepdims=True)  # (n_rows, 1)
 
+    angle_limit = np.pi
+    torque_limit = u_bound
+    angle_divider = np.full(2*num_segments, angle_limit)
+    velocity_divider = max_abs[2*num_segments:4*num_segments].flatten()
+    torque_divider = np.full(2*num_segments, torque_limit)
+    divider = np.hstack([angle_divider, velocity_divider, angle_divider, velocity_divider, torque_divider])
+
     out = np.zeros_like(M, dtype=float)
-    np.divide(M, max_abs, out=out, where=max_abs >= eps)
+    np.divide(M, divider.reshape(-1,1), out=out, where=divider.reshape(-1,1) >= eps)
     return out
 
 def update_line(num, points1, points2, points3, lines):

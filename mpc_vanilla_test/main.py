@@ -140,39 +140,42 @@ def main():
             opti.set_initial(X, X_init)
             opti.set_initial(opti.lam_g, 0)   # don't carry duals across changing constraints '''
             # solve the problem
-            #try:
-            sol = opti.solve()
+            try:
+                sol = opti.solve()
 
-            # WARM START OPTI
-            u_sol = sol.value(u)
-            X_sol = sol.value(X)
+                # WARM START OPTI
+                u_sol = sol.value(u)
+                X_sol = sol.value(X)
 
-            # predict one step to fill the last state (use last control)
-            u_last = u_sol[:, -1]
-            x_pred = F(x0=X_sol[:, -1], u=u_last, q0 = pcc_arm.current_state)['xf'].full().flatten()
+                # predict one step to fill the last state (use last control)
+                u_last = u_sol[:, -1]
+                x_pred = F(x0=X_sol[:, -1], u=u_last, q0 = pcc_arm.current_state)['xf'].full().flatten()
 
-            # shifted X init
-            X_init = np.hstack([X_sol[:, 1:], x_pred.reshape(-1, 1)])
-            opti.set_initial(X, X_init)
+                # shifted X init
+                X_init = np.hstack([X_sol[:, 1:], x_pred.reshape(-1, 1)])
+                opti.set_initial(X, X_init)
 
-            # warm-start duals (Ipopt)
-            opti.set_initial(opti.lam_g, sol.value(opti.lam_g))
-            # WARM START OPTI
+                # warm-start duals (Ipopt)
+                opti.set_initial(opti.lam_g, sol.value(opti.lam_g))
+                # WARM START OPTI
 
-            '''except RuntimeError:
-                # Backoff: reset duals and reinitialize a calm guess, then try once more
-                opti.set_initial(opti.lam_g, 0)
-                opti.set_initial(X, np.tile(pcc_arm.current_state.reshape(-1,1), (1, N+1)))
-                opti.set_initial(u, np.zeros((2*pcc_arm.num_segments, N)))
-                sol = opti.solve()'''
+                '''except RuntimeError:
+                    # Backoff: reset duals and reinitialize a calm guess, then try once more
+                    opti.set_initial(opti.lam_g, 0)
+                    opti.set_initial(X, np.tile(pcc_arm.current_state.reshape(-1,1), (1, N+1)))
+                    opti.set_initial(u, np.zeros((2*pcc_arm.num_segments, N)))
+                    sol = opti.solve()'''
 
-            # apply the first control input to the real system
-            pcc_arm.next_step(sol.value(u)[:,0])
+                # apply the first control input to the real system
+                pcc_arm.next_step(sol.value(u)[:,0])
 
-            pcc_arm.log_history(sol.value(u)[:,0],q_goal_value)
-            pbar.update(SIM_PARAMETERS['dt'])
+                pcc_arm.log_history(sol.value(u)[:,0],q_goal_value)
+                pbar.update(SIM_PARAMETERS['dt'])
+            except:
+                break
+
     print("--- %s seconds ---" % (time.time() - start_time))
-    history_plot(pcc_arm)
+    history_plot(pcc_arm,MPC_PARAMETERS['u_bound'])
 
 if __name__ == "__main__":
     main()
