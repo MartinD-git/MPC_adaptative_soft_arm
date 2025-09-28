@@ -1,8 +1,8 @@
-import traceback
 import casadi as ca
 import numpy as np
 from tqdm import tqdm
 import time
+import traceback
 
 # Parameters
 from pcc_arm import PCCSoftArm
@@ -19,7 +19,9 @@ def main():
         m = ARM_PARAMETERS['m'],
         d_eq = ARM_PARAMETERS['d_eq'],
         K = ARM_PARAMETERS['K'],
-        num_segments=ARM_PARAMETERS['num_segments']
+        num_segments=ARM_PARAMETERS['num_segments'],
+        r_d=ARM_PARAMETERS['r_d'],
+        sigma_k=ARM_PARAMETERS['sigma_k'],
     ) 
     pcc_arm.current_state=SIM_PARAMETERS['x0']
 
@@ -30,7 +32,7 @@ def main():
     #q = X[:6,:]
     #q_dot = X[6:,:]
     
-    u = opti.variable(2*pcc_arm.num_segments,N)
+    u = opti.variable(3*pcc_arm.num_segments,N)
     q_goal = opti.parameter(4*pcc_arm.num_segments)
     x0 = opti.parameter(4*pcc_arm.num_segments)
     q0 = opti.parameter(4*pcc_arm.num_segments)
@@ -39,7 +41,7 @@ def main():
     # Create integrator
     pcc_arm.create_integrator(SIM_PARAMETERS['dt'])
     F = pcc_arm.integrator
-    #F = F.expand() # may be faster but needs more memory
+    F = F.expand() # may be faster but needs more memory
 
     # Objective
     objective = 0
@@ -48,7 +50,7 @@ def main():
         
         if i>0:
             du = u[:,i] - u[:,i-1]
-            objective += ca.mtimes([du.T, 0.1*np.eye(2*pcc_arm.num_segments), du]) #smooth input changes
+            objective += ca.mtimes([du.T, 0.1*np.eye(3*pcc_arm.num_segments), du]) #smooth input changes
 
     objective += ca.mtimes([(X[:,N]-q_goal).T, MPC_PARAMETERS['Qf'], (X[:,N]-q_goal)]) #final cost
 
@@ -59,7 +61,7 @@ def main():
     for i in range(N):
         opti.subject_to(X[:, i+1] ==F(x0=X[:, i], u=u[:, i], q0=q0)['xf']) # system dynamics
     u_bound=MPC_PARAMETERS['u_bound']
-    opti.subject_to(opti.bounded(-u_bound, u, u_bound)) # input constraints
+    opti.subject_to(opti.bounded(0, u, u_bound)) # input constraints
 
     #solver
     opti.solver(
@@ -84,8 +86,7 @@ def main():
                 'bound_mult_init_method': 'mu-based',
                 'warm_start_bound_push': 1e-6,
                 'warm_start_mult_bound_push': 1e-6
-            },
-            'ipopt.print_level': 0, 'print_time': 0, 'ipopt.sb': 'yes'
+            }
         }
     )
 
@@ -121,7 +122,7 @@ def main():
 
             if t == 0:
                 opti.set_initial(X, np.tile(pcc_arm.current_state.reshape(-1, 1), (1, N+1)))
-                opti.set_initial(u, np.zeros((2*pcc_arm.num_segments, N)))
+                opti.set_initial(u, np.zeros((3*pcc_arm.num_segments, N))+0.5)
             else:
                 opti.set_initial(u, np.hstack((sol.value(u)[:,1:], sol.value(u)[:,-1:])))
             
@@ -150,7 +151,7 @@ def main():
 
                 pcc_arm.log_history(sol.value(u)[:,0],q_goal_value)
                 pbar.update(SIM_PARAMETERS['dt'])
-            except:
+            except Exception:
                 traceback.print_exc()
                 break
 

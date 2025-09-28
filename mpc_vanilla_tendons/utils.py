@@ -201,7 +201,7 @@ def pcc_dynamics(arm,q, q_dot, tips, jacobians):
     C_vec_func = ca.Function('C_vec_func', [q, q_dot], [c_vec])
 
     x = ca.SX.sym('x', 4*num_segments)
-    u = ca.SX.sym('u', 2*num_segments)
+    u = ca.SX.sym('u', 3*num_segments)
     q0 = ca.SX.sym('x', 4*num_segments)
     K = arm.K
 
@@ -217,8 +217,24 @@ def pcc_dynamics(arm,q, q_dot, tips, jacobians):
 
     #q_ddot = ca.solve(M_term , u - C_term - G_term - D_term - K_term) #Ax=b
 
+    # We want tensions in the tendons not torques:
+    J_tendon = ca.SX.zeros((3*num_segments, 2*num_segments))
+    '''for i in range(num_segments):
+        for k in range(3): #number of tendons
+            phi =q_from_x[2*i]
+            theta = q_from_x[1+2*i]
+            J_tendon[k+3*i,2*i] = -theta*arm.r_d*ca.sin(arm.sigma_k[k]-phi)
+            J_tendon[k+3*i,2*i+1] = -arm.r_d*ca.cos(arm.sigma_k[k]-phi)'''
+    for i in range(num_segments):
+        for k in range(3): #number of tendons
+            phi =q0[2*i]
+            theta = q0[1+2*i]
+            J_tendon[k+3*i,2*i] = -theta*arm.r_d*ca.sin(arm.sigma_k[k]-phi)
+            J_tendon[k+3*i,2*i+1] = -arm.r_d*ca.cos(arm.sigma_k[k]-phi)
+    tau = J_tendon.T @ u
+
     #added for speed
-    rhs = u - C_term - G_term - D_term - K_term
+    rhs = tau - C_term - G_term - D_term - K_term
 
     # Robust SPD solve via Cholesky
     R = ca.chol(M_term) # M_term = R.T @ R
@@ -226,11 +242,11 @@ def pcc_dynamics(arm,q, q_dot, tips, jacobians):
     q_ddot = ca.solve(R, y) # R q_ddot = y
     x_dot = ca.vertcat(q_dot_from_x, q_ddot)
 
-    return ca.Function('pcc_f', [x, u,q0], [x_dot])
+    return ca.Function('pcc_f', [x, u, q0], [x_dot])
 
 def dynamics2integrator(pcc_arm):
     x0 = ca.MX.sym('x0', 4*pcc_arm.num_segments)
-    u  = ca.MX.sym('u', 2*pcc_arm.num_segments) 
+    u  = ca.MX.sym('u', 3*pcc_arm.num_segments) 
     q0 = ca.MX.sym('q0', 4*pcc_arm.num_segments)
 
     dt=pcc_arm.dt
