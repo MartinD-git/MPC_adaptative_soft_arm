@@ -11,34 +11,34 @@ from visualisation import history_plot
 def main():
     start_time = time.time()
     N=MPC_PARAMETERS['N']
-    
 
     pcc_arm = PCCSoftArm(
         L_segs = ARM_PARAMETERS['L_segs'],
         m = ARM_PARAMETERS['m'],
         d_eq = ARM_PARAMETERS['d_eq'],
-        K = ARM_PARAMETERS['K']
+        K = ARM_PARAMETERS['K'],
+        num_segments=ARM_PARAMETERS['num_segments']
     )
     pcc_arm.current_state=SIM_PARAMETERS['x0']
 
     opti= ca.Opti()
 
     #Declare decision variables
-    X= opti.variable(12,N+1)
+    X= opti.variable(4*pcc_arm.num_segments,N+1)
     #q = X[:6,:]
     #q_dot = X[6:,:]
-    u = opti.variable(6,N)
-    q_goal = opti.parameter(12)
+    
+    u = opti.variable(2*pcc_arm.num_segments,N)
+    q_goal = opti.parameter(4*pcc_arm.num_segments)
     m_par   = opti.parameter()
-    d_par   = opti.parameter(3)
-    K_par   = opti.parameter(6, 6)
-    x0 = opti.parameter(12)
+    d_par   = opti.parameter(pcc_arm.num_segments)
+    K_par   = opti.parameter(2*pcc_arm.num_segments, 2*pcc_arm.num_segments)
+    x0 = opti.parameter(4*pcc_arm.num_segments)
 
     # Create integrator
     pcc_arm.create_integrator(SIM_PARAMETERS['dt'])
     F = pcc_arm.integrator
     F = F.expand() # may be faster but needs more memory
-
     # Objective
     objective = 0
     for i in range(N):
@@ -46,7 +46,7 @@ def main():
         
         if i>0:
             du = u[:,i] - u[:,i-1]
-            objective += ca.mtimes([du.T, 0.1*np.eye(6), du]) #smooth input changes
+            objective += ca.mtimes([du.T, 0.1*np.eye(2*pcc_arm.num_segments), du]) #smooth input changes
 
     objective += ca.mtimes([(X[:,N]-q_goal).T, MPC_PARAMETERS['Qf'], (X[:,N]-q_goal)]) #final cost
 
@@ -55,7 +55,7 @@ def main():
     # Constraints
     opti.subject_to(X[:,0] == x0) # initial condition
     for i in range(N):
-        p_i  = ca.vertcat(u[:, i], m_par, d_par, ca.reshape(K_par, 36, 1))
+        p_i  = ca.vertcat(u[:, i], m_par, d_par, ca.reshape(K_par, (2*pcc_arm.num_segments)**2, 1))
         opti.subject_to(X[:, i+1] ==F(x0=X[:, i], p=p_i)['xf']) # system dynamics
     u_bound=MPC_PARAMETERS['u_bound']
     opti.subject_to(opti.bounded(-u_bound, u, u_bound)) # input constraints
@@ -64,7 +64,7 @@ def main():
     opti.solver(
         'ipopt',
         {
-            'expand': True,        # inline/simplify once (uses RAM, speeds eval)
+            'expand': True,  
             'jit': False,          
             'ipopt': {
                 'print_level': 0,
@@ -73,10 +73,10 @@ def main():
                 'acceptable_iter': 3,
                 'mu_strategy': 'adaptive',
                 'hessian_approximation': 'limited-memory',
-                'limited_memory_max_history': 100,     # default is 6; you had 50
+                'limited_memory_max_history': 100, 
                 'limited_memory_initialization': 'scalar2',
                 'linear_solver': 'mumps',
-                'mumps_mem_percent': 5000,             # allow big workspace
+                'mumps_mem_percent': 5000, 
                 'mumps_pivtol': 1e-6,
                 'mumps_pivtolmax': 1e-1,
                 'warm_start_init_point': 'yes',
@@ -90,15 +90,26 @@ def main():
 
     # Simu loop
     num_iter = int(SIM_PARAMETERS['T']/SIM_PARAMETERS['dt'])
-    with tqdm(total=num_iter*SIM_PARAMETERS['dt'], desc="MPC loop", unit="s") as pbar:
+    with tqdm(total=num_iter*SIM_PARAMETERS['dt'], desc="MPC loop") as pbar:
         for t in range(num_iter):
 
             # set the goal
             if t*SIM_PARAMETERS['dt'] > SIM_PARAMETERS['T']/3:
-                q_goal_value = np.array([
-                    0, np.deg2rad(-90), 0, np.deg2rad(+120), 0, np.deg2rad(-120),
-                    0, 0, 0, 0, 0, 0
-                ])
+                if pcc_arm.num_segments ==2:
+                    q_goal_value = np.array([
+                        0, np.deg2rad(-90), 0, np.deg2rad(+120),
+                        0, 0, 0, 0
+                    ])
+
+                elif pcc_arm.num_segments ==3:
+                    q_goal_value = np.array([
+                        0, np.deg2rad(-90), 0, np.deg2rad(+120), 0, np.deg2rad(-120),
+                        0, 0, 0, 0, 0, 0
+                    ])
+
+                else:
+                    raise ValueError("num_segments must be 2 or 3")
+                
             else:
                 q_goal_value = SIM_PARAMETERS['x0']
             
@@ -110,7 +121,7 @@ def main():
 
             if t == 0:
                 opti.set_initial(X, np.tile(pcc_arm.current_state.reshape(-1, 1), (1, N+1)))
-                opti.set_initial(u, np.zeros((6, N)))
+                opti.set_initial(u, np.zeros((2*pcc_arm.num_segments, N)))
             else:
                 opti.set_initial(u, np.hstack((sol.value(u)[:,1:], sol.value(u)[:,-1:])))
             

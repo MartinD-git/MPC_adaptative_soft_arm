@@ -4,8 +4,6 @@ This script defines basic functions used across the project.
 
 import casadi as ca
 import numpy as np
-import os, sys, subprocess
-from pathlib import Path
 
 '''def pcc_segment_transform(s_var, phi, theta, L): 
 
@@ -31,7 +29,7 @@ from pathlib import Path
 
     return T'''
 def sinc_cosc(u, eps=1e-4):
-    # Precompute powers (integers => fast)
+    # Precompute powers
     u2 = u*u
     u4 = u2*u2
     u6 = u4*u2
@@ -73,13 +71,18 @@ def pcc_segment_transform(s_var, phi, theta, L, eps=1e-4):
     T = ca.vertcat(ca.horzcat(R, t), ca.horzcat(0,0,0,1))
     return T
 
-def pcc_forward_kinematics(s, q, L_segs):
+def pcc_forward_kinematics(s, q, L_segs,num_segments=3):
     '''
     Compute the forward kinematics of the 3-segment PCC robot arm.
     '''
-
-    L1, L2, L3 = L_segs[0], L_segs[1], L_segs[2]
-    phi1, th1, phi2, th2, phi3, th3 = q[0], q[1], q[2], q[3], q[4], q[5]
+    if num_segments == 2:
+        L1, L2 = L_segs[0], L_segs[1]
+        phi1, th1, phi2, th2 = q[0], q[1], q[2], q[3]
+    elif num_segments == 3:
+        L1, L2, L3 = L_segs[0], L_segs[1], L_segs[2]
+        phi1, th1, phi2, th2, phi3, th3 = q[0], q[1], q[2], q[3], q[4], q[5]
+    else:
+        raise ValueError("num_segments must be 2 or 3")
 
     # Chain the transformations
     T_tip1 = pcc_segment_transform(1, phi1, th1, L1)
@@ -87,17 +90,24 @@ def pcc_forward_kinematics(s, q, L_segs):
 
     T_global1 = pcc_segment_transform(s, phi1, th1, L1)
     T_global2 = T_tip1 @ pcc_segment_transform(s, phi2, th2, L2)
-    T_global3 = T_tip1 @ T_tip2 @ pcc_segment_transform(s, phi3, th3, L3)
 
     p1 = T_global1[:3, 3]
     p2 = T_global2[:3, 3]
-    p3 = T_global3[:3, 3]
 
     J1 = ca.jacobian(p1, q)
     J2 = ca.jacobian(p2, q)
-    J3 = ca.jacobian(p3, q)
+    
+    if num_segments==3:
+        T_global3 = T_tip1 @ T_tip2 @ pcc_segment_transform(s, phi3, th3, L3)
+        p3 = T_global3[:3, 3]
+        J3 = ca.jacobian(p3, q)
 
-    return [p1, p2, p3], [J1,J2,J3]
+    if num_segments==2:
+        return [p1, p2], [J1,J2]
+    elif num_segments==3:
+        return [p1, p2, p3], [J1,J2,J3]
+    else:
+        raise ValueError("num_segments must be 2 or 3")
 
 def gauss_legendre(result,integrand, s):
     '''
@@ -130,21 +140,27 @@ def shape_function(q, tips, s):
 
     for s_val in s_points: points1.append(ca.substitute(tips[0], s, s_val))
     for s_val in s_points: points2.append(ca.substitute(tips[1], s, s_val))
-    for s_val in s_points: points3.append(ca.substitute(tips[2], s, s_val))
+    if len(tips)>2:
+        for s_val in s_points: points3.append(ca.substitute(tips[2], s, s_val))
 
     P1 = ca.horzcat(*points1)
-    P2 = ca.horzcat(*points2) 
-    P3 = ca.horzcat(*points3)
+    P2 = ca.horzcat(*points2)
+    if len(tips)>2:
+        P3 = ca.horzcat(*points3)
 
-    return ca.Function('arm_shape_func', [q], [P1, P2, P3])
+    if len(tips)<=2:
+        return ca.Function('arm_shape_func', [q], [P1, P2])
+    else:
+        return ca.Function('arm_shape_func', [q], [P1, P2, P3])
 
-def pcc_dynamics(q, q_dot, tips, jacobians, s):
+def pcc_dynamics(q, q_dot, tips, jacobians, s, num_segments=3):
+
     m = ca.SX.sym('m')
-    M = ca.SX.zeros(6, 6)
+    M = ca.SX.zeros(2*num_segments, 2*num_segments)
     g_vec = np.array([0.0, 0.0, -9.81])
     G_pot = 0
-    d_eq = ca.SX.sym('d_eq', 3)
-    D = ca.SX.zeros(6, 6)
+    d_eq = ca.SX.sym('d_eq', num_segments)
+    D = ca.SX.zeros(2*num_segments, 2*num_segments)
 
     J = ca.vertcat(*jacobians)
 
@@ -152,7 +168,12 @@ def pcc_dynamics(q, q_dot, tips, jacobians, s):
 
     G_integrand = -m * sum(ca.dot(g_vec, tip) for tip in tips)
 
-    D_integrand = (jacobians[0].T @ jacobians[0]) * d_eq[0]+(jacobians[1].T @ jacobians[1]) * d_eq[1]+(jacobians[2].T @ jacobians[2]) * d_eq[2]
+    if num_segments==2:
+        D_integrand = (jacobians[0].T @ jacobians[0]) * d_eq[0]+(jacobians[1].T @ jacobians[1]) * d_eq[1]
+    elif num_segments==3:
+        D_integrand = (jacobians[0].T @ jacobians[0]) * d_eq[0]+(jacobians[1].T @ jacobians[1]) * d_eq[1]+(jacobians[2].T @ jacobians[2]) * d_eq[2]
+    else:
+        raise ValueError("num_segments must be 2 or 3")
 
     M = gauss_legendre(M, M_integrand, s)
 
@@ -175,15 +196,15 @@ def pcc_dynamics(q, q_dot, tips, jacobians, s):
     c_vec = M_dot_q_dot @ q_dot - KE_grad
     C_vec_func = ca.Function('C_vec_func', [q, q_dot, m], [c_vec])
 
-    x = ca.SX.sym('x', 12)
-    u = ca.SX.sym('u', 6)
-    K = ca.SX.sym('K', 6, 6)
+    x = ca.SX.sym('x', 4*num_segments)
+    u = ca.SX.sym('u', 2*num_segments)
+    K = ca.SX.sym('K', 2*num_segments, 2*num_segments)
 
-    q_from_x = x[:6]
-    q_dot_from_x = x[6:]
+    q_from_x = x[:2*num_segments]
+    q_dot_from_x = x[2*num_segments:]
 
     # Calculate q_ddot
-    M_term= M_func(q_from_x, m)+1e-8* ca.SX.eye(6)
+    M_term= M_func(q_from_x, m)+1e-8* ca.SX.eye(2*num_segments)
     C_term= C_vec_func(q_from_x, q_dot_from_x, m)
     G_term= G_func(q_from_x, m)
     D_term= D_func(q_from_x, d_eq) @ q_dot_from_x
@@ -194,26 +215,25 @@ def pcc_dynamics(q, q_dot, tips, jacobians, s):
     #added for speed
     rhs = u - C_term - G_term - D_term - K_term
 
-    # Robust SPD solve via Cholesky (SX-safe)
-    R = ca.chol(M_term)                    # M_term = R.T @ R
-    y = ca.solve(R.T, rhs)                 # R^T y = rhs
-    q_ddot = ca.solve(R, y)                # R q_ddot = y
+    # Robust SPD solve via Cholesky
+    R = ca.chol(M_term) # M_term = R.T @ R
+    y = ca.solve(R.T, rhs)  # R^T y = rhs
+    q_ddot = ca.solve(R, y) # R q_ddot = y
     x_dot = ca.vertcat(q_dot_from_x, q_ddot)
 
     return ca.Function('pcc_f', [x, u, m,d_eq,K], [x_dot])
 
 def dynamics2integrator(pcc_arm):
-    # Pure-CasADi RK4 map: xf = F(x0, p)
-    x0 = ca.MX.sym('x0', 12)
-    p  = ca.MX.sym('p', 46)  # [u(6), m(1), d(3), vec(K)(36)] = 46
+    x0 = ca.MX.sym('x0', 4*pcc_arm.num_segments)
+    p  = ca.MX.sym('p', 2*pcc_arm.num_segments + 1 + pcc_arm.num_segments + (2*pcc_arm.num_segments)**2)  # [u(6), m(1), d(3), vec(K)(36)] = 46
     dt=pcc_arm.dt
 
-    u  = p[0:6]
-    m  = p[6]
-    d  = p[7:10]
-    K  = ca.reshape(p[10:], 6, 6)
+    u  = p[0:2*pcc_arm.num_segments]
+    m  = p[2*pcc_arm.num_segments]
+    d  = p[2*pcc_arm.num_segments + 1: 3*pcc_arm.num_segments + 1]
+    K  = ca.reshape(p[3*pcc_arm.num_segments + 1:], 2*pcc_arm.num_segments, 2*pcc_arm.num_segments)
 
-    f = pcc_arm.dynamics_func  # f(x, u, m, d, K) -> xdot
+    f = pcc_arm.dynamics_func
 
     k1 = f(x0,                 u, m, d, K)
     k2 = f(x0 + 0.5*dt*k1,     u, m, d, K)
@@ -221,7 +241,6 @@ def dynamics2integrator(pcc_arm):
     k4 = f(x0 + dt*k3,         u, m, d, K)
     xf = x0 + (dt/6.0)*(k1 + 2*k2 + 2*k3 + k4)
 
-    # Make it look like a CasADi "integrator" call-site: F(x0=..., p=...)['xf']
     F = ca.Function('pcc_F_map', [x0, p], [xf], ['x0', 'p'], ['xf'])
 
     return F

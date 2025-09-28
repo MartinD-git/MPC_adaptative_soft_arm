@@ -1,0 +1,122 @@
+import numpy as np
+import matplotlib.pyplot as plt
+import matplotlib.animation as animation
+
+def history_plot(pcc_arm):
+    history = np.array(pcc_arm.history)
+    history_d = np.array(pcc_arm.history_d)
+    history_u = np.array(pcc_arm.history_u)
+
+    M_raw = np.hstack((history, history_d, history_u)).T  # (30, T)
+    M = normalize(M_raw)
+    time = np.arange(history.shape[0]) * pcc_arm.dt
+
+    for i in range(pcc_arm.num_segments):
+        fig, axs = plt.subplots(2, 1, figsize=(8, 6))
+        fig.suptitle(f"Segment {i+1}")
+
+        labels = [r'$\phi$', r'$\phi_d$', r'$\dot{\phi}$', r'$\dot{\phi}_d$', r'$\tau$']
+        linestyle = ['-', '--', '-', '--', '-']
+        color = ['b', 'b', 'c', 'c', 'r']
+        idx = np.array([2*i, 4*pcc_arm.num_segments+2*i, 2*pcc_arm.num_segments+2*i, 4*pcc_arm.num_segments+2*pcc_arm.num_segments+2*i, 8*pcc_arm.num_segments+2*i]) 
+        for j in range(5):
+            axs[0].plot(time, M[idx[j], :], label=labels[j], linestyle=linestyle[j], color=color[j])
+        axs[0].set_title('Phi and Torque')
+        axs[0].set_xlabel('Time [s]'); axs[0].set_ylabel('Normalized'); axs[0].legend()
+
+        labels = [r'$\theta$', r'$\theta_d$', r'$\dot{\theta}$', r'$\dot{\theta}_d$', r'$\tau$']
+        linestyle = ['-', '--', '-', '--', '-']
+        color = ['b', 'b', 'c', 'c', 'r']
+        idx = np.array([2*i+1, 4*pcc_arm.num_segments+2*i+1, 2*pcc_arm.num_segments+2*i+1, 4*pcc_arm.num_segments+2*pcc_arm.num_segments+2*i+1, 8*pcc_arm.num_segments+2*i+1])
+        for j in range(5):
+            axs[1].plot(time, M[idx[j], :], label=labels[j], linestyle=linestyle[j], color=color[j])
+        axs[1].set_title('Theta and Torque')
+        axs[1].set_xlabel('Time [s]'); axs[1].set_ylabel('Normalized'); axs[1].legend()
+
+    plt.tight_layout()
+
+
+
+
+    # 3d animation
+    #get posture from shape function
+
+    points1 = []
+    points2 = []
+    if pcc_arm.num_segments ==3:
+        points3 = []
+
+    for x in history:
+        q = x[:2*pcc_arm.num_segments]
+        if pcc_arm.num_segments==2:
+            segment1, segment2 = pcc_arm.shape_func(q)
+        elif pcc_arm.num_segments==3:
+            segment1, segment2, segment3 = pcc_arm.shape_func(q)
+        points1.append(segment1.full())
+        points2.append(segment2.full())
+        if pcc_arm.num_segments ==3:
+            points3.append(segment3.full())
+
+    # Attaching 3D axis to the figure
+    fig = plt.figure()
+    ax = fig.add_subplot(projection="3d")
+
+    # Create lines initially without data
+    line1=ax.plot(points1[0][0,:], points1[0][1,:], points1[0][2,:],'b-', label='Segment 1')
+    line2=ax.plot(points2[0][0,:], points2[0][1,:], points2[0][2,:],'r-', label='Segment 2')
+
+    if pcc_arm.num_segments ==3:
+        line3=ax.plot(points3[0][0,:], points3[0][1,:], points3[0][2,:],'m-', label='Segment 3')
+        lines = [line1[0], line2[0], line3[0]]
+    else:
+        lines = [line1[0], line2[0]]
+
+    # Setting the Axes properties
+    max_length = np.sum(pcc_arm.L_segs)
+    ax.set(xlim3d=(-0.5 * max_length, 1.1 * max_length), xlabel='X')
+    ax.set(ylim3d=(-1.1 * max_length, 1.1 * max_length), ylabel='Y')
+    ax.set(zlim3d=(-1.1 * max_length, 1.1 * max_length), zlabel='Z')
+
+    # Creating the Animation object
+    if pcc_arm.num_segments==2:
+        ani = animation.FuncAnimation(
+            fig, 
+            func=update_line, 
+            frames=len(history), 
+            fargs=(points1, points2, None, lines),
+            interval=pcc_arm.dt * 1000
+        )
+    elif pcc_arm.num_segments==3:
+        ani = animation.FuncAnimation(
+            fig, 
+            func=update_line, 
+            frames=len(history), 
+            fargs=(points1, points2, points3, lines),
+        interval=pcc_arm.dt * 1000
+    )
+
+    plt.show()
+    '''print("saving to csv")
+    np.savetxt("history.csv", M_raw, delimiter=",")
+    print("saved to csv")'''
+
+def normalize(M, eps=1e-8):
+    max_abs = np.max(np.abs(M), axis=1, keepdims=True)  # (n_rows, 1)
+
+    out = np.zeros_like(M, dtype=float)
+    np.divide(M, max_abs, out=out, where=max_abs >= eps)
+    return out
+
+def update_line(num, points1, points2, points3, lines):
+    pts1 = points1[num]
+    pts2 = points2[num]
+    if points3 is not None:
+        pts3 = points3[num]
+    lines[0].set_data(pts1[0, :], pts1[1, :])
+    lines[0].set_3d_properties(pts1[2, :])
+    lines[1].set_data(pts2[0, :], pts2[1, :])
+    lines[1].set_3d_properties(pts2[2, :])
+    if points3 is not None:
+        lines[2].set_data(pts3[0, :], pts3[1, :])
+        lines[2].set_3d_properties(pts3[2, :])
+    return lines

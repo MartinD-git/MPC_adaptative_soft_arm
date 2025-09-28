@@ -12,14 +12,14 @@ def history_plot(pcc_arm):
     M = normalize(M_raw)
     time = np.arange(history.shape[0]) * pcc_arm.dt
 
-    for i in range(3):
+    for i in range(pcc_arm.num_segments):
         fig, axs = plt.subplots(2, 1, figsize=(8, 6))
         fig.suptitle(f"Segment {i+1}")
 
         labels = [r'$\phi$', r'$\phi_d$', r'$\dot{\phi}$', r'$\dot{\phi}_d$', r'$\tau$']
         linestyle = ['-', '--', '-', '--', '-']
         color = ['b', 'b', 'c', 'c', 'r']
-        idx = np.array([2*i, 12+2*i, 6+2*i, 12+6+2*i, 24+2*i]) 
+        idx = np.array([2*i, 4*pcc_arm.num_segments+2*i, 2*pcc_arm.num_segments+2*i, 4*pcc_arm.num_segments+2*pcc_arm.num_segments+2*i, 8*pcc_arm.num_segments+2*i]) 
         for j in range(5):
             axs[0].plot(time, M[idx[j], :], label=labels[j], linestyle=linestyle[j], color=color[j])
         axs[0].set_title('Phi and Torque')
@@ -28,7 +28,7 @@ def history_plot(pcc_arm):
         labels = [r'$\theta$', r'$\theta_d$', r'$\dot{\theta}$', r'$\dot{\theta}_d$', r'$\tau$']
         linestyle = ['-', '--', '-', '--', '-']
         color = ['b', 'b', 'c', 'c', 'r']
-        idx = np.array([2*i+1, 12+2*i+1, 6+2*i+1, 12+6+2*i+1, 24+2*i+1])
+        idx = np.array([2*i+1, 4*pcc_arm.num_segments+2*i+1, 2*pcc_arm.num_segments+2*i+1, 4*pcc_arm.num_segments+2*pcc_arm.num_segments+2*i+1, 8*pcc_arm.num_segments+2*i+1])
         for j in range(5):
             axs[1].plot(time, M[idx[j], :], label=labels[j], linestyle=linestyle[j], color=color[j])
         axs[1].set_title('Theta and Torque')

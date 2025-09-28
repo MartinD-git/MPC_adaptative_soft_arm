@@ -3,7 +3,7 @@ import casadi as ca
 from utils import pcc_forward_kinematics, pcc_dynamics, shape_function, dynamics2integrator
 
 class PCCSoftArm:
-    def __init__(self, L_segs, m, d_eq, K):
+    def __init__(self, L_segs, m, d_eq, K, num_segments=3):
         print("Initializing PCC Soft Arm Model...")
         #define the robot arm
         self.L_segs = L_segs
@@ -15,21 +15,23 @@ class PCCSoftArm:
         self.history = []
         self.history_d = []
         self.history_u = []
-
+        if num_segments not in [2,3]:
+            raise ValueError("num_segments must be 2 or 3")
+        self.num_segments = num_segments
 
         s = ca.SX.sym('s')
-        q = ca.SX.sym('q', 6)
-        q_dot = ca.SX.sym('q_dot', 6)
+        q = ca.SX.sym('q', 2*self.num_segments)
+        q_dot = ca.SX.sym('q_dot', 2*self.num_segments)
 
         # compute the kinematics
-        tips, jacobians = pcc_forward_kinematics(s, q, self.L_segs)
+        tips, jacobians = pcc_forward_kinematics(s, q, self.L_segs,self.num_segments)
         print("Kinematics done")
 
         # shape function for visualization
         self.shape_func = shape_function(q, tips, s)
 
         # compute the dynamics
-        self.dynamics_func = pcc_dynamics(q, q_dot, tips, jacobians, s)
+        self.dynamics_func = pcc_dynamics(q, q_dot, tips, jacobians, s,self.num_segments)
         print("Dynamics done")
 
     def create_integrator(self, dt):
@@ -39,7 +41,7 @@ class PCCSoftArm:
         print("Integrator done")
 
     def next_step(self, u):
-        p=ca.vertcat(u, self.m, self.d_eq, ca.reshape(self.K, 36, 1))
+        p=ca.vertcat(u, self.m, self.d_eq, ca.reshape(self.K, (2*self.num_segments)**2, 1))
         # simulate one step
         self.current_state = self.integrator(x0=self.current_state, p=p)['xf'].full().flatten()
 
