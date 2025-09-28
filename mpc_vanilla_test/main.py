@@ -19,7 +19,7 @@ def main():
         d_eq = ARM_PARAMETERS['d_eq'],
         K = ARM_PARAMETERS['K'],
         num_segments=ARM_PARAMETERS['num_segments']
-    )
+    ) 
     pcc_arm.current_state=SIM_PARAMETERS['x0']
 
     opti= ca.Opti()
@@ -123,22 +123,6 @@ def main():
             else:
                 opti.set_initial(u, np.hstack((sol.value(u)[:,1:], sol.value(u)[:,-1:])))
             
-
-            '''if t == 0:
-                u_init = np.zeros((2*pcc_arm.num_segments, N))
-            else:
-                # shift last control sequence
-                u_init = np.hstack((sol.value(u)[:, 1:], sol.value(u)[:, -1:]))
-
-            # rollout X with the frozen model at current q0
-            X_init = np.empty((4*pcc_arm.num_segments, N+1))
-            X_init[:, 0] = pcc_arm.current_state
-            for i in range(N):
-                X_init[:, i+1] = F(x0=X_init[:, i], u=u_init[:, i], q0=pcc_arm.current_state)['xf'].full().flatten()
-
-            opti.set_initial(u, u_init)
-            opti.set_initial(X, X_init)
-            opti.set_initial(opti.lam_g, 0)   # don't carry duals across changing constraints '''
             # solve the problem
             try:
                 sol = opti.solve()
@@ -158,13 +142,6 @@ def main():
                 # warm-start duals (Ipopt)
                 opti.set_initial(opti.lam_g, sol.value(opti.lam_g))
                 # WARM START OPTI
-
-                '''except RuntimeError:
-                    # Backoff: reset duals and reinitialize a calm guess, then try once more
-                    opti.set_initial(opti.lam_g, 0)
-                    opti.set_initial(X, np.tile(pcc_arm.current_state.reshape(-1,1), (1, N+1)))
-                    opti.set_initial(u, np.zeros((2*pcc_arm.num_segments, N)))
-                    sol = opti.solve()'''
 
                 # apply the first control input to the real system
                 pcc_arm.next_step(sol.value(u)[:,0])
