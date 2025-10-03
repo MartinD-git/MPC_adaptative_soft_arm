@@ -6,21 +6,21 @@ E=23e6 #Young modulus
 rho=1220 #density
 
 #arm
-r_o     = 0.025   # outer radius [m]
-t_wall  = 0.005   # wall thickness [m]
+r_o     = 0.025 # outer radius [m]
+t_wall  = 0.005 # wall thickness [m]
 r_i     = r_o - t_wall
 L = 0.5 #length of each segment
-A= np.pi*(r_o**2 - r_i**2)  #cross section area
+A= np.pi*(r_o**2 - r_i**2)  # area
 I = np.pi*(r_o**4 - r_i**4)/4 #second moment of area
 m = rho * A * L #mass of each segment
 k_phi = 0
-k_theta = (E*I)/L 
+k_theta = (E*I)/L
 xi=0.05
 d = 2*xi*1.875**2 * np.sqrt((rho*A*E*I)/(L**2))
-u_bound = 100
+u_bound = 10
 
 horizon_time = 2  #seconds
-dt = 0.05  #seconds
+dt = 0.1  #seconds
 
 num_segments = 2
 
@@ -66,5 +66,6 @@ elif num_segments==2:
         "num_segments": num_segments,
     }
 
-
-
+'''print("MPC_PARAMETERS:", MPC_PARAMETERS)
+print("ARM_PARAMETERS:", ARM_PARAMETERS)
+print("SIM_PARAMETERS:", SIM_PARAMETERS)'''

@@ -13,7 +13,6 @@ def main():
     start_time = time.time()
     N=MPC_PARAMETERS['N']
     
-
     pcc_arm = PCCSoftArm(
         L_segs = ARM_PARAMETERS['L_segs'],
         m = ARM_PARAMETERS['m'],
@@ -85,7 +84,7 @@ def main():
                 'warm_start_bound_push': 1e-6,
                 'warm_start_mult_bound_push': 1e-6
             },
-            'ipopt.print_level': 0, 'print_time': 0, 'ipopt.sb': 'yes'
+            #'ipopt.print_level': 0, 'print_time': 0, 'ipopt.sb': 'yes'
         }
     )
 
@@ -99,7 +98,7 @@ def main():
             if t*SIM_PARAMETERS['dt'] > SIM_PARAMETERS['T']/3:
                 if pcc_arm.num_segments ==2:
                     q_goal_value = np.array([
-                        0, np.deg2rad(-90), 0, np.deg2rad(+120),
+                        np.deg2rad(45), np.deg2rad(-45), np.deg2rad(45), np.deg2rad(+45),
                         0, 0, 0, 0
                     ])
 

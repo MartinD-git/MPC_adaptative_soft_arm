@@ -99,9 +99,6 @@ def history_plot(pcc_arm,u_bound):
     )
 
     plt.show()
-    '''print("saving to csv")
-    np.savetxt("history.csv", M_raw, delimiter=",")
-    print("saved to csv")'''
 
 def normalize(M,u_bound,num_segments, eps=1e-8):
     max_abs = np.max(np.abs(M), axis=1, keepdims=True)  # (n_rows, 1)

@@ -12,6 +12,8 @@ def history_plot(pcc_arm,u_bound):
 
     M_raw = np.hstack((history, history_d)).T 
     M = normalize(M_raw,pcc_arm.num_segments)
+    rows_to_modify = np.arange(0, 2*pcc_arm.num_segments, 1)
+    M[rows_to_modify] = np.mod(M[rows_to_modify], 2 * np.pi)
     time = np.arange(history.shape[0]) * pcc_arm.dt
 
     for i in range(pcc_arm.num_segments):
