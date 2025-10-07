@@ -51,11 +51,13 @@ ARM_PARAMETERS = {
     "L_segs": [L, L],
     "r_o": r_o,
     "r_i": r_i,
+    "sigma_k": [0, 2*np.pi/3,2*2*np.pi/3],
     "rho_arm": rho,
     "d_eq": [d, d],
     "K": np.diag([k_phi, k_theta, k_phi, k_theta]),
     "num_segments": num_segments,
     "rho_liquid": rho_liquid,
+    "r_d": r_o
 }
 
 '''print("MPC_PARAMETERS:", MPC_PARAMETERS)

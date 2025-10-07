@@ -13,13 +13,17 @@ class PCCSoftArm:
         self.r_i = arm_param_dict['r_i']
         self.rho = arm_param_dict['rho_arm']
         self.rho_liquid = arm_param_dict['rho_liquid']
+        self.r_d = arm_param_dict['r_d']
+        self.sigma_k = arm_param_dict['sigma_k']
         self.rho_air = 1.225 # kg/m^3
         self.C_d = 1.17  # drag coefficient, approx for cylinder
+        self.max_tension = 50  # max tension for each tendon
         self.dt = dt
         self.current_state = None
         self.history = []
         self.history_d = []
         self.history_u = []
+        self.history_u_tendon = []
         self.num_segments = arm_param_dict['num_segments']
 
         self.s = ca.SX.sym('s')
@@ -47,10 +51,11 @@ class PCCSoftArm:
 
         return self.current_state
     
-    def log_history(self,u,q_d):
+    def log_history(self,u,q_d,u_tendon):
         self.history.append(self.current_state)
         self.history_u.append(u)
         self.history_d.append(q_d)
+        self.history_u_tendon.append(u_tendon)
 
 
 

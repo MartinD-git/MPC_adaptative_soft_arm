@@ -6,9 +6,11 @@ def history_plot(pcc_arm,u_bound,xyz_traj=None):
     history = np.array(pcc_arm.history)
     history_d = np.array(pcc_arm.history_d)
     history_u = np.array(pcc_arm.history_u)
+    history_u_tendon = np.array(pcc_arm.history_u_tendon)
     np.savetxt("history_u.csv", history_u, delimiter=",")
     np.savetxt("history_d.csv", history_d, delimiter=",")
     np.savetxt("history_angles.csv", history, delimiter=",")
+    np.savetxt("history_u_tendon.csv", history_u_tendon, delimiter=",")
 
     M_raw = np.hstack((history, history_d, history_u)).T  # (30, T)
     M = normalize(M_raw,u_bound,pcc_arm.num_segments)
@@ -35,6 +37,25 @@ def history_plot(pcc_arm,u_bound,xyz_traj=None):
             axs[1].plot(time, M[idx[j], :], label=labels[j], linestyle=linestyle[j], color=color[j])
         axs[1].set_title('Theta and Torque')
         axs[1].set_xlabel('Time [s]'); axs[1].set_ylabel('Normalized'); axs[1].legend()
+
+    plt.tight_layout()
+
+    # tendon plot 
+    fig, axs = plt.subplots(2, 1, figsize=(8, 6))
+    fig.suptitle("Control Inputs (Tendon Tensions)")
+
+    labels = [r'$T_1$', r'$T_2$', r'$T_3$']
+    color = ['b', 'r', 'm']
+    print(history_u_tendon.shape)
+    for i in range(pcc_arm.num_segments):
+        for k in range(2):
+            axs[i].plot(time, history_u_tendon[:,i+k], label=labels[k], linestyle='-', color=color[k])
+        axs[i].set_title(f'Segment {i+1}')
+        axs[i].set_xlabel('Time [s]')
+        axs[i].set_ylabel('N')
+        axs[i].set_ylim(0, pcc_arm.max_tension*1.1)
+        axs[i].legend()
+        
 
     plt.tight_layout()
 
