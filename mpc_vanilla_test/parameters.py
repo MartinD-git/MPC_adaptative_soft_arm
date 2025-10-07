@@ -17,7 +17,7 @@ k_phi = 0
 k_theta = (E*I)/L
 xi=0.05
 d = 2*xi*1.875**2 * np.sqrt((rho*A*E*I)/(L**2))
-u_bound = 10
+u_bound = 20
 
 horizon_time = 2  #seconds
 dt = 0.1  #seconds
@@ -27,11 +27,28 @@ num_segments = 2
 MPC_PARAMETERS = {
     "N": int(np.ceil(horizon_time/dt)),
     "Q":  np.diag([15]*2*num_segments + [1]*2*num_segments),
-    "Qf": np.diag([30]*2*num_segments + [2]*2*num_segments),  # stronger terminal weight helps convergence
+    "Qf": np.diag([15]*2*num_segments + [2]*2*num_segments),  # stronger terminal weight helps convergence
     "R": np.eye(2*num_segments),
     "u_bound": u_bound,
 }
-if num_segments==3:
+if num_segments==2:
+    SIM_PARAMETERS = {
+        "dt": dt,
+        "T": 10,
+        "x0": np.array([
+            np.deg2rad(45), np.deg2rad(45), np.deg2rad(45), np.deg2rad(45),
+            0, 0, 0, 0
+        ]),
+    }
+
+    ARM_PARAMETERS = {
+        "L_segs": [L, L],
+        "m": m,
+        "d_eq": [d, d],
+        "K": np.diag([k_phi, k_theta, k_phi, k_theta]),
+        "num_segments": num_segments,
+    }
+elif num_segments==3:
     ARM_PARAMETERS = {
         "L_segs": [L, L, L],
         "m": m,
@@ -47,23 +64,6 @@ if num_segments==3:
             0, np.deg2rad(90), 0, np.deg2rad(-120), 0, np.deg2rad(120),
             0, 0, 0, 0, 0, 0
         ]),
-    }
-elif num_segments==2:
-    SIM_PARAMETERS = {
-        "dt": dt,
-        "T": 4,
-        "x0": np.array([
-            0, np.deg2rad(45), 0, np.deg2rad(60),
-            0, 0, 0, 0
-        ]),
-    }
-
-    ARM_PARAMETERS = {
-        "L_segs": [L, L],
-        "m": m,
-        "d_eq": [d, d],
-        "K": np.diag([k_phi, k_theta, k_phi, k_theta]),
-        "num_segments": num_segments,
     }
 
 '''print("MPC_PARAMETERS:", MPC_PARAMETERS)

@@ -3,21 +3,21 @@ import casadi as ca
 from utils import pcc_forward_kinematics, pcc_dynamics, shape_function, dynamics2integrator
 
 class PCCSoftArm:
-    def __init__(self, L_segs, m, d_eq, K, num_segments=3):
+    def __init__(self, arm_param_dict):
         print("Initializing PCC Soft Arm Model...")
         #define the robot arm
-        self.L_segs = L_segs
-        self.m = m
-        self.d_eq = d_eq
-        self.K = K
+        self.L_segs = arm_param_dict['L_segs']
+        self.m = arm_param_dict['m']
+        self.d_eq = arm_param_dict['d_eq']
+        self.K = arm_param_dict['K']
         self.current_state = None
         self.dt = None
         self.history = []
         self.history_d = []
         self.history_u = []
-        if num_segments not in [2,3]:
+        if arm_param_dict['num_segments'] not in [2,3]:
             raise ValueError("num_segments must be 2 or 3")
-        self.num_segments = num_segments
+        self.num_segments = arm_param_dict['num_segments']
 
         self.s = ca.SX.sym('s')
         q = ca.SX.sym('q', 2*self.num_segments)
@@ -50,6 +50,7 @@ class PCCSoftArm:
         self.history.append(self.current_state)
         self.history_u.append(u)
         self.history_d.append(q_d)
+
 
 
 

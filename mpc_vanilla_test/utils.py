@@ -4,6 +4,7 @@ This script defines basic functions used across the project.
 
 import casadi as ca
 import numpy as np
+import matplotlib.pyplot as plt
 
 '''def pcc_segment_transform(s_var, phi, theta, L): 
 
@@ -108,6 +109,7 @@ def pcc_forward_kinematics(s, q, L_segs,num_segments=3):
         return [p1, p2, p3], [J1,J2,J3]
     else:
         raise ValueError("num_segments must be 2 or 3")
+    
 
 def gauss_legendre(result,integrand, s):
     '''
@@ -247,3 +249,229 @@ def dynamics2integrator(pcc_arm):
     F = ca.Function('pcc_F_map', [x0, u,q0], [xf], ['x0', 'u','q0'], ['xf'])
 
     return F
+
+def circle_trajectory(radius, height, angle, num_points):
+    '''
+    Generate a circular trajectory for the end-effector, rotated around the x axis by 'angle' radians.
+    '''
+    angles = np.linspace(0, 2*np.pi, num_points,endpoint=False)
+    trajectory = np.empty((num_points, 3))
+
+    # Rotation matrix around x axis
+    ca_ = np.cos(angle)
+    sa_ = np.sin(angle)
+    R_x = np.array([
+        [1,    0,     0],
+        [0,  ca_, -sa_],
+        [0,  sa_,  ca_]
+    ])
+
+    for i, ang in enumerate(angles):
+        x = radius * np.cos(ang)
+        y = radius * np.sin(ang)
+        z = height
+        point = np.array([x, y, z])
+        rotated_point = R_x @ point
+        trajectory[i, :] = rotated_point
+
+    return trajectory
+
+'''def taskspace_to_jointspace(arm, traj_xyz, w_reg=1e-4):
+    """
+    Convert a sequence of Cartesian points (Nx3) into joint vectors (Nx, 2*num_segments).
+    """
+    Nseg = arm.num_segments
+    dof = 2 * Nseg
+    tip_index = (Nseg - 1)
+    q0 = np.array([0, np.deg2rad(45), 0, np.deg2rad(45)])
+
+    # Variables
+    q = ca.SX.sym('q', dof)
+    p_des = ca.SX.sym('p', 3)
+
+    # Build tip position at s=1 using your FK
+    tips, _ = pcc_forward_kinematics(arm.s, q, arm.L_segs, num_segments=Nseg)
+    p_tip = ca.substitute(tips[tip_index], arm.s, 1.0)  
+
+    # Small least-squares
+    cost = ca.sumsqr(p_tip - p_des) + w_reg * ca.sumsqr(q)
+
+    nlp = {'x': q, 'p': p_des, 'f': cost}
+    opts = {'ipopt.print_level': 0, 'print_time': 0}
+    solver = ca.nlpsol('ik', 'ipopt', nlp, opts)
+
+    # Prepare bounds and initial guess
+    delta = np.array([np.deg2rad(30)]*dof)
+
+    Q = np.zeros((traj_xyz.shape[0], dof))
+    q_prev = q0
+
+    for i, p in enumerate(traj_xyz):
+        lbx = q_prev - delta
+        ubx = q_prev + delta
+        sol = solver(x0=q_prev, p=p, lbx=lbx, ubx=ubx)
+        q_sol = np.array(sol['x']).flatten()
+        Q[i, :] = q_sol
+        q_prev = q_sol  # warm-start next point
+
+    return Q'''
+
+def taskspace_to_jointspace(arm, traj_xyz, w_smooth=1e-2):
+    """
+    Convert a sequence of Cartesian points (N x 3) into joint vectors (N x 2*num_segments).
+    """
+    N_seg = arm.num_segments
+    dof = 2 * N_seg
+    tip_index = N_seg - 1
+
+    traj_xyz = np.asarray(traj_xyz)
+    num_points = traj_xyz.shape[0]
+
+    q0 = np.array([np.deg2rad(0), np.deg2rad(10), np.deg2rad(10), np.deg2rad(10)])
+    delta = np.deg2rad(20) * np.ones(dof)
+
+    # Decision variables: one row per waypoint
+    q = ca.SX.sym('q', num_points, dof)
+
+    cost = 0
+    constr_vars, constr_lbx, constr_ubx = [], [], []
+
+    w_smooth=1e-6
+    w_acc = 1e-3
+    def joint_diff(i, j):
+        elems = []
+        for k in range(N_seg):
+            # wrap φ, plain for θ
+            elems += [anglediff(q[i, 2*k], q[j, 2*k]),  q[i, 2*k+1] - q[j, 2*k+1]]
+        return ca.vertcat(*elems)
+
+    for i in range(num_points):
+        i_prev = (i - 1) % num_points
+
+        # FK at step i
+        tips, _ = pcc_forward_kinematics(arm.s, q[i, :], arm.L_segs, num_segments=N_seg)
+        p_tip = ca.substitute(tips[tip_index], arm.s, 1.0)
+
+        # tracking + smoothness
+        dq = anglediff(q[i, :], q[i_prev, :])
+        cost += ca.sumsqr(p_tip - traj_xyz[i, :]) + w_smooth * ca.sumsqr(dq)
+
+        constr_vars.append(ca.transpose(dq))
+        constr_lbx.append(-delta)
+        constr_ubx.append(+delta)
+    
+    for i in range(num_points):
+        i_prev = (i - 1) % num_points
+        i_prev2 = (i - 2) % num_points
+        d1_i    = joint_diff(i, i_prev)
+        d1_prev = joint_diff(i_prev, i_prev2)
+        d2      = d1_i - d1_prev
+        cost   += w_acc * ca.sumsqr(d2)
+
+    g   = ca.vertcat(*constr_vars)
+    glb = np.concatenate(constr_lbx)
+    gub = np.concatenate(constr_ubx)
+
+    nlp  = {'x': ca.vec(q), 'f': cost, 'g': g}
+    opts = {'ipopt.print_level': 0, 'print_time': 0}
+    solver = ca.nlpsol('ik', 'ipopt', nlp, opts)
+
+    X0_mat = ca.repmat(ca.DM(q0).T, num_points, 1)
+    x0     = ca.vec(X0_mat)
+
+    nx  = num_points * dof
+    lbx = -np.inf * np.ones(nx)
+    ubx = +np.inf * np.ones(nx)
+
+    sol = solver(x0=x0, lbx=lbx, ubx=ubx, lbg=glb, ubg=gub)
+
+    Qsol_mat = ca.reshape(sol['x'], num_points, dof) 
+    Qsol = np.array(Qsol_mat)
+
+    q_row = ca.SX.sym('q_row', dof)
+    tips_row, _ = pcc_forward_kinematics(arm.s, q_row, arm.L_segs, num_segments=N_seg)
+    p_tip_row = ca.substitute(tips_row[tip_index], arm.s, 1.0)
+    fk_tip = ca.Function('fk_tip', [q_row], [p_tip_row])
+
+    # Evaluate tip positions for the solved joint path
+    P = np.array([np.array(fk_tip(Qsol[i, :])).squeeze() for i in range(num_points)])
+
+    # 3D plot
+    fig = plt.figure()
+    ax = fig.add_subplot(111, projection='3d')
+    ax.plot(traj_xyz[:,0], traj_xyz[:,1], traj_xyz[:,2], 'o', label='desired')
+    ax.plot(P[:,0], P[:,1], P[:,2], '-', label='IK tip')
+    ax.set_xlabel('X'); ax.set_ylabel('Y'); ax.set_zlabel('Z')
+    ax.set_title('IK vs desired circle'); ax.legend()
+
+    # Make axes roughly equal
+    xs, ys, zs = P[:,0], P[:,1], P[:,2]
+    xm, ym, zm = xs.mean(), ys.mean(), zs.mean()
+    r = 0.5 * max(xs.max()-xs.min(), ys.max()-ys.min(), zs.max()-zs.min())
+    ax.set_xlim(xm - r, xm + r); ax.set_ylim(ym - r, ym + r); ax.set_zlim(zm - r, zm + r)
+    phi   = Qsol[:, 0::2]                 # shape: (N, N_seg)
+    theta = Qsol[:, 1::2]                 # shape: (N, N_seg)
+
+    # unwrap φ to avoid ±2π jumps for readability
+    phi_un = np.unwrap(phi, axis=0)
+    phi_un=phi
+
+    # to degrees (nicer to read)
+    rad2deg = 180.0/np.pi
+    phi_deg   = phi_un * rad2deg
+    theta_deg = theta   * rad2deg
+
+    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(7, 5), sharex=True)
+
+    for k in range(N_seg):
+        ax1.plot(phi_deg[:, k], label=f'φ{k+1}')
+        ax2.plot(theta_deg[:, k], label=f'θ{k+1}')
+
+    ax1.set_ylabel('φ (deg)')
+    ax2.set_ylabel('θ (deg)')
+    ax2.set_xlabel('waypoint index')
+    ax1.set_title('Joint angles along trajectory')
+    ax1.legend(ncol=max(1, N_seg//2), fontsize=8)
+    ax2.legend(ncol=max(1, N_seg//2), fontsize=8)
+    plt.tight_layout()
+    plt.show()
+
+    return Qsol
+
+def generate_total_trajectory(arm,T,dt,q0,num_mpc_steps,stabilizing_time=1.0, loop_time=6.0):
+
+    if T < stabilizing_time + loop_time:
+        raise ValueError("Total sim time must be greater than stabilizing_time + loop_time")
+
+    number_of_loops = int(np.ceil((T-stabilizing_time)/loop_time)+1) #+1 to be sure
+
+    # Create trajectory
+
+    # stabilize first at initial position
+    num_stabilize_points = int(stabilizing_time//dt)
+    q_stabilize_traj = np.tile(q0, (num_stabilize_points, 1))
+
+    # follow the circular trajectory
+    xyz_circular_traj = circle_trajectory(radius=0.3, height=0.6, angle=-np.deg2rad(75), num_points=int(loop_time//dt))
+
+    q_traj = taskspace_to_jointspace(arm, xyz_circular_traj)
+    
+    idx0 = np.argmin(np.linalg.norm(q_traj - q0[:2*arm.num_segments], axis=1))
+    q_traj = np.unwrap(np.roll(q_traj, -idx0, axis=0),axis=0) #start at the closest point to q0
+
+    #q_dot_traj = np.gradient(q_traj, dt, axis=0, edge_order=2)
+    q_dot_traj = np.diff(np.vstack((q_traj,q_traj[0,:])),axis=0)/dt
+    q_circ_traj = np.hstack((q_traj, q_dot_traj))
+
+
+    q_circ_traj = np.tile(q_circ_traj, (int(number_of_loops), 1)) #more than necessary
+
+    q_tot_traj = np.vstack((q_stabilize_traj, q_circ_traj))
+
+
+    return q_tot_traj[:int(T//dt+num_mpc_steps+2),:], xyz_circular_traj #+1 for the last point, +1 for the diff to be sure
+
+def anglediff(a, b):
+    # CasADi-safe angle difference in [-pi, pi]
+    return ca.atan2(ca.sin(a - b), ca.cos(a - b))
+

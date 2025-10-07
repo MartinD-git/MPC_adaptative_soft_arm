@@ -8,20 +8,19 @@ import time
 from pcc_arm import PCCSoftArm
 from parameters import ARM_PARAMETERS, MPC_PARAMETERS, SIM_PARAMETERS
 from visualisation import history_plot
+from utils import generate_total_trajectory
 
 def main():
     start_time = time.time()
     N=MPC_PARAMETERS['N']
-    
-    pcc_arm = PCCSoftArm(
-        L_segs = ARM_PARAMETERS['L_segs'],
-        m = ARM_PARAMETERS['m'],
-        d_eq = ARM_PARAMETERS['d_eq'],
-        K = ARM_PARAMETERS['K'],
-        num_segments=ARM_PARAMETERS['num_segments']
-    ) 
+
+    pcc_arm = PCCSoftArm(ARM_PARAMETERS)
     pcc_arm.current_state=SIM_PARAMETERS['x0']
 
+    #generate circular trajectory (N,4*num_segments)
+    print("Generating trajectory")
+    q_tot_traj, xyz_circular_traj = generate_total_trajectory(pcc_arm,SIM_PARAMETERS['T'],SIM_PARAMETERS['dt'],SIM_PARAMETERS['x0'],N,stabilizing_time=1.0, loop_time=4.0)
+    print("Trajectory is generated")
     opti= ca.Opti()
 
     #Declare decision variables
@@ -30,7 +29,7 @@ def main():
     #q_dot = X[6:,:]
     
     u = opti.variable(2*pcc_arm.num_segments,N)
-    q_goal = opti.parameter(4*pcc_arm.num_segments)
+    q_goal = opti.parameter(4*pcc_arm.num_segments,N+1)
     x0 = opti.parameter(4*pcc_arm.num_segments)
     q0 = opti.parameter(4*pcc_arm.num_segments)
 
@@ -40,16 +39,24 @@ def main():
     F = pcc_arm.integrator
     #F = F.expand() # may be faster but needs more memory
 
+
+
     # Objective
     objective = 0
     for i in range(N):
-        objective += ca.mtimes([(X[:,i]-q_goal).T, MPC_PARAMETERS['Q'], (X[:,i]-q_goal)]) + ca.mtimes([u[:,i].T, MPC_PARAMETERS['R'], u[:,i]])
+        '''e_pos = pos_err_vec(X[:2*pcc_arm.num_segments, i], q_goal[:2*pcc_arm.num_segments, i], pcc_arm.num_segments)
+        e_vel = X[2*pcc_arm.num_segments:, i] - q_goal[2*pcc_arm.num_segments:, i]
+        e = ca.vertcat(e_pos, e_vel)
+
+        objective += ca.mtimes([e.T, MPC_PARAMETERS['Q'], e]) + ca.mtimes([u[:,i].T, MPC_PARAMETERS['R'], u[:,i]])
+        '''
+        objective += ca.mtimes([(X[:,i]-q_goal[:,i]).T, MPC_PARAMETERS['Q'], (X[:,i]-q_goal[:,i])]) + ca.mtimes([u[:,i].T, MPC_PARAMETERS['R'], u[:,i]])
         
         if i>0:
             du = u[:,i] - u[:,i-1]
             objective += ca.mtimes([du.T, 0.1*np.eye(2*pcc_arm.num_segments), du]) #smooth input changes
 
-    objective += ca.mtimes([(X[:,N]-q_goal).T, MPC_PARAMETERS['Qf'], (X[:,N]-q_goal)]) #final cost
+    objective += ca.mtimes([(X[:,N]-q_goal[:,N]).T, MPC_PARAMETERS['Qf'], (X[:,N]-q_goal[:,N])]) #final cost
 
     opti.minimize(objective)
 
@@ -94,25 +101,7 @@ def main():
     with tqdm(total=num_iter*SIM_PARAMETERS['dt'], desc="MPC loop",bar_format = '{l_bar}{bar}| {n:.2f}/{total_fmt} ''[{elapsed}<{remaining}]') as pbar:
         for t in range(num_iter):
 
-            # set the goal
-            if t*SIM_PARAMETERS['dt'] > SIM_PARAMETERS['T']/3:
-                if pcc_arm.num_segments ==2:
-                    q_goal_value = np.array([
-                        np.deg2rad(45), np.deg2rad(-45), np.deg2rad(45), np.deg2rad(+45),
-                        0, 0, 0, 0
-                    ])
-
-                elif pcc_arm.num_segments ==3:
-                    q_goal_value = np.array([
-                        0, np.deg2rad(-90), 0, np.deg2rad(+120), 0, np.deg2rad(-120),
-                        0, 0, 0, 0, 0, 0
-                    ])
-
-                else:
-                    raise ValueError("num_segments must be 2 or 3")
-                
-            else:
-                q_goal_value = SIM_PARAMETERS['x0']
+            q_goal_value = q_tot_traj[t:t+N+1,:].T
             
             opti.set_value(x0, pcc_arm.current_state)
             opti.set_value(q_goal, q_goal_value)
@@ -147,14 +136,27 @@ def main():
                 # apply the first control input to the real system
                 pcc_arm.next_step(sol.value(u)[:,0])
 
-                pcc_arm.log_history(sol.value(u)[:,0],q_goal_value)
+                pcc_arm.log_history(sol.value(u)[:,0], q_goal_value[:,0])
                 pbar.update(SIM_PARAMETERS['dt'])
             except:
                 traceback.print_exc()
                 break
 
     print("--- %s seconds ---" % (time.time() - start_time))
-    history_plot(pcc_arm,MPC_PARAMETERS['u_bound'])
+    history_plot(pcc_arm,MPC_PARAMETERS['u_bound'],xyz_circular_traj)
+
+def angle_err(a, b):
+    # shortest signed angle difference
+    return ca.atan2(ca.sin(a-b), ca.cos(a-b))
+
+def pos_err_vec(xq, gq, nseg):
+    terms = []
+    for k in range(2*nseg):
+        if k % 2 == 0:   # φ indices: 0,2,(4)...
+            terms.append(angle_err(xq[k], gq[k]))
+        else:            # θ: plain difference
+            terms.append(xq[k] - gq[k])
+    return ca.vertcat(*terms)
 
 if __name__ == "__main__":
     main()
