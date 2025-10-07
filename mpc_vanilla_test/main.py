@@ -14,7 +14,7 @@ def main():
     start_time = time.time()
     N=MPC_PARAMETERS['N']
 
-    pcc_arm = PCCSoftArm(ARM_PARAMETERS)
+    pcc_arm = PCCSoftArm(ARM_PARAMETERS,SIM_PARAMETERS['dt'])
     pcc_arm.current_state=SIM_PARAMETERS['x0']
 
     #generate circular trajectory (N,4*num_segments)
@@ -35,7 +35,6 @@ def main():
 
 
     # Create integrator
-    pcc_arm.create_integrator(SIM_PARAMETERS['dt'])
     F = pcc_arm.integrator
     #F = F.expand() # may be faster but needs more memory
 

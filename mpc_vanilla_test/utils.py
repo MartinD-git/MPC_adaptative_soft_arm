@@ -157,9 +157,10 @@ def shape_function(q, tips,s):
     else:
         return ca.Function('arm_shape_func', [q], [P1, P2, P3])
 
-def pcc_dynamics(arm,q, q_dot, tips, jacobians):
+def pcc_dynamics(arm,q, q_dot, tips, jacobians,sim=False):
 
     m = arm.m
+    m_buoy = arm.m_buoy
     num_segments = arm.num_segments
     s = arm.s
     M = ca.SX.zeros(2*num_segments, 2*num_segments)
@@ -170,12 +171,24 @@ def pcc_dynamics(arm,q, q_dot, tips, jacobians):
 
     J = ca.vertcat(*jacobians)
 
-    M_integrand = m * (J.T @ J)
-
-    G_integrand = -m * sum(ca.dot(g_vec, tip) for tip in tips)
+    if not sim:
+        G_integrand = -m * sum(ca.dot(g_vec, tip) for tip in tips)
+        M_integrand = m * (J.T @ J)
+        D_fluid = 0
+    else:
+        G_integrand = (m_buoy-m) * sum(ca.dot(g_vec, tip) for tip in tips)
+        M_integrand = (m+m_buoy) * (J.T @ J)
+        D_fluid = 0
+        for i, Ji in enumerate(jacobians):
+            v_i = Ji @ q_dot
+            vmag = ca.norm_2(v_i)
+            Aproj = (2*arm.r_o)*arm.L_segs[i] # projected area per segment
+            D_fluid += 0.5 * arm.rho_water * arm.C_d * Aproj * vmag * (Ji.T @ Ji)
+        
 
     if num_segments==2:
-        D_integrand = (jacobians[0].T @ jacobians[0]) * d_eq[0]+(jacobians[1].T @ jacobians[1]) * d_eq[1]
+        D_integrand = (jacobians[0].T @ jacobians[0]) * d_eq[0]+(jacobians[1].T @ jacobians[1]) * d_eq[1] + D_fluid
+
     elif num_segments==3:
         D_integrand = (jacobians[0].T @ jacobians[0]) * d_eq[0]+(jacobians[1].T @ jacobians[1]) * d_eq[1]+(jacobians[2].T @ jacobians[2]) * d_eq[2]
     else:
@@ -190,7 +203,7 @@ def pcc_dynamics(arm,q, q_dot, tips, jacobians):
 
     M_func = ca.Function('M_func', [q], [M])
     G_func = ca.Function('G_func', [q], [G])
-    D_func = ca.Function('D_func', [q], [D])
+    D_func = ca.Function('D_func', [q,q_dot], [D])
 
     # Coriolis C
     M_q = M_func(q)
@@ -214,7 +227,7 @@ def pcc_dynamics(arm,q, q_dot, tips, jacobians):
     M_term= M_func(q0[:2*num_segments])+1e-8* np.eye(2*num_segments)
     C_term= C_vec_func(q0[:2*num_segments], q0[2*num_segments:])
     G_term= G_func(q0[:2*num_segments])
-    D_term= D_func(q0[:2*num_segments]) @ q0[2*num_segments:]
+    D_term= D_func(q0[:2*num_segments], q0[2*num_segments:]) @ q0[2*num_segments:]
     K_term= K @ q0[:2*num_segments]
 
     #q_ddot = ca.solve(M_term , u - C_term - G_term - D_term - K_term) #Ax=b
@@ -230,15 +243,12 @@ def pcc_dynamics(arm,q, q_dot, tips, jacobians):
 
     return ca.Function('pcc_f', [x, u,q0], [x_dot])
 
-def dynamics2integrator(pcc_arm):
+def dynamics2integrator(pcc_arm,f):
     x0 = ca.MX.sym('x0', 4*pcc_arm.num_segments)
     u  = ca.MX.sym('u', 2*pcc_arm.num_segments) 
     q0 = ca.MX.sym('q0', 4*pcc_arm.num_segments)
 
     dt=pcc_arm.dt
-
-
-    f = pcc_arm.dynamics_func
 
     k1 = f(x0,u,q0)
     k2 = f(x0 + 0.5*dt*k1,u,q0)

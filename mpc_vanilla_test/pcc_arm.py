@@ -3,15 +3,19 @@ import casadi as ca
 from utils import pcc_forward_kinematics, pcc_dynamics, shape_function, dynamics2integrator
 
 class PCCSoftArm:
-    def __init__(self, arm_param_dict):
+    def __init__(self, arm_param_dict, dt):
         print("Initializing PCC Soft Arm Model...")
         #define the robot arm
         self.L_segs = arm_param_dict['L_segs']
         self.m = arm_param_dict['m']
         self.d_eq = arm_param_dict['d_eq']
         self.K = arm_param_dict['K']
+        self.m_buoy = arm_param_dict['m_buoy']
+        self.r_o = arm_param_dict['r_o']
+        self.rho_water = 1000  # density of water
+        self.C_d = 1.17  # drag coefficient, approx for cylinder
+        self.dt = dt
         self.current_state = None
-        self.dt = None
         self.history = []
         self.history_d = []
         self.history_u = []
@@ -31,18 +35,16 @@ class PCCSoftArm:
         self.shape_func = shape_function(q, tips,self.s)
 
         # compute the dynamics
-        self.dynamics_func = pcc_dynamics(self,q, q_dot, tips, jacobians)
+        dynamics_func = pcc_dynamics(self,q, q_dot, tips, jacobians,sim=True)
+        dynamics_func_sim = pcc_dynamics(self,q, q_dot, tips, jacobians,sim=True)
         print("Dynamics done")
-
-    def create_integrator(self, dt):
-        self.dt=dt
-        # create integrator
-        self.integrator = dynamics2integrator(self)
-        print("Integrator done")
+        # create integrators
+        self.integrator = dynamics2integrator(self,dynamics_func)
+        self.integrator_sim = dynamics2integrator(self,dynamics_func_sim)
 
     def next_step(self, u):
         # simulate one step
-        self.current_state = self.integrator(x0=self.current_state, u=u, q0=self.current_state)['xf'].full().flatten()
+        self.current_state = self.integrator_sim(x0=self.current_state, u=u, q0=self.current_state)['xf'].full().flatten()
 
         return self.current_state
     

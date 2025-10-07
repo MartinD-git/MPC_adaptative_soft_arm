@@ -19,6 +19,13 @@ xi=0.05
 d = 2*xi*1.875**2 * np.sqrt((rho*A*E*I)/(L**2))
 u_bound = 20
 
+rho_water = 1000 #density of water
+rho_air = 1.225 #density of air
+
+m_buoy = rho_water * A * L #buoyancy mass of each segment
+# m_buoy = rho_air * A * L #buoyancy mass of each segment
+
+
 horizon_time = 2  #seconds
 dt = 0.1  #seconds
 
@@ -43,11 +50,14 @@ if num_segments==2:
 
     ARM_PARAMETERS = {
         "L_segs": [L, L],
+        "r_o": r_o,
         "m": m,
         "d_eq": [d, d],
         "K": np.diag([k_phi, k_theta, k_phi, k_theta]),
         "num_segments": num_segments,
+        "m_buoy": m_buoy,
     }
+
 elif num_segments==3:
     ARM_PARAMETERS = {
         "L_segs": [L, L, L],
