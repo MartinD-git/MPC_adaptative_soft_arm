@@ -43,12 +43,6 @@ def main():
     # Objective
     objective = 0
     for i in range(N):
-        '''e_pos = pos_err_vec(X[:2*pcc_arm.num_segments, i], q_goal[:2*pcc_arm.num_segments, i], pcc_arm.num_segments)
-        e_vel = X[2*pcc_arm.num_segments:, i] - q_goal[2*pcc_arm.num_segments:, i]
-        e = ca.vertcat(e_pos, e_vel)
-
-        objective += ca.mtimes([e.T, MPC_PARAMETERS['Q'], e]) + ca.mtimes([u[:,i].T, MPC_PARAMETERS['R'], u[:,i]])
-        '''
         objective += ca.mtimes([(X[:,i]-q_goal[:,i]).T, MPC_PARAMETERS['Q'], (X[:,i]-q_goal[:,i])]) + ca.mtimes([u[:,i].T, MPC_PARAMETERS['R'], u[:,i]])
         
         if i>0:
@@ -143,19 +137,6 @@ def main():
 
     print("--- %s seconds ---" % (time.time() - start_time))
     history_plot(pcc_arm,MPC_PARAMETERS['u_bound'],xyz_circular_traj)
-
-def angle_err(a, b):
-    # shortest signed angle difference
-    return ca.atan2(ca.sin(a-b), ca.cos(a-b))
-
-def pos_err_vec(xq, gq, nseg):
-    terms = []
-    for k in range(2*nseg):
-        if k % 2 == 0:   # φ indices: 0,2,(4)...
-            terms.append(angle_err(xq[k], gq[k]))
-        else:            # θ: plain difference
-            terms.append(xq[k] - gq[k])
-    return ca.vertcat(*terms)
 
 if __name__ == "__main__":
     main()

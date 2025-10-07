@@ -7,20 +7,19 @@ class PCCSoftArm:
         print("Initializing PCC Soft Arm Model...")
         #define the robot arm
         self.L_segs = arm_param_dict['L_segs']
-        self.m = arm_param_dict['m']
         self.d_eq = arm_param_dict['d_eq']
         self.K = arm_param_dict['K']
-        self.m_buoy = arm_param_dict['m_buoy']
         self.r_o = arm_param_dict['r_o']
-        self.rho_water = 1000  # density of water
+        self.r_i = arm_param_dict['r_i']
+        self.rho = arm_param_dict['rho_arm']
+        self.rho_liquid = arm_param_dict['rho_liquid']
+        self.rho_air = 1.225 # kg/m^3
         self.C_d = 1.17  # drag coefficient, approx for cylinder
         self.dt = dt
         self.current_state = None
         self.history = []
         self.history_d = []
         self.history_u = []
-        if arm_param_dict['num_segments'] not in [2,3]:
-            raise ValueError("num_segments must be 2 or 3")
         self.num_segments = arm_param_dict['num_segments']
 
         self.s = ca.SX.sym('s')
@@ -35,7 +34,7 @@ class PCCSoftArm:
         self.shape_func = shape_function(q, tips,self.s)
 
         # compute the dynamics
-        dynamics_func = pcc_dynamics(self,q, q_dot, tips, jacobians,sim=True)
+        dynamics_func = pcc_dynamics(self,q, q_dot, tips, jacobians,sim=False)
         dynamics_func_sim = pcc_dynamics(self,q, q_dot, tips, jacobians,sim=True)
         print("Dynamics done")
         # create integrators

@@ -76,14 +76,10 @@ def pcc_forward_kinematics(s, q, L_segs,num_segments=3):
     '''
     Compute the forward kinematics of the 3-segment PCC robot arm.
     '''
-    if num_segments == 2:
-        L1, L2 = L_segs[0], L_segs[1]
-        phi1, th1, phi2, th2 = q[0], q[1], q[2], q[3]
-    elif num_segments == 3:
-        L1, L2, L3 = L_segs[0], L_segs[1], L_segs[2]
-        phi1, th1, phi2, th2, phi3, th3 = q[0], q[1], q[2], q[3], q[4], q[5]
-    else:
-        raise ValueError("num_segments must be 2 or 3")
+
+    L1, L2 = L_segs[0], L_segs[1]
+    phi1, th1, phi2, th2 = q[0], q[1], q[2], q[3]
+
 
     # Chain the transformations
     T_tip1 = pcc_segment_transform(1, phi1, th1, L1)
@@ -98,17 +94,8 @@ def pcc_forward_kinematics(s, q, L_segs,num_segments=3):
     J1 = ca.jacobian(p1, q)
     J2 = ca.jacobian(p2, q)
     
-    if num_segments==3:
-        T_global3 = T_tip1 @ T_tip2 @ pcc_segment_transform(s, phi3, th3, L3)
-        p3 = T_global3[:3, 3]
-        J3 = ca.jacobian(p3, q)
+    return [p1, p2], [J1,J2]
 
-    if num_segments==2:
-        return [p1, p2], [J1,J2]
-    elif num_segments==3:
-        return [p1, p2, p3], [J1,J2,J3]
-    else:
-        raise ValueError("num_segments must be 2 or 3")
     
 
 def gauss_legendre(result,integrand, s):
@@ -139,28 +126,21 @@ def shape_function(q, tips,s):
     s_points = np.linspace(0, 1, 20) # 20 points per segment
     points1 = []
     points2 = []
-    points3 = []
 
     for s_val in s_points: points1.append(ca.substitute(tips[0], s, s_val))
     for s_val in s_points: points2.append(ca.substitute(tips[1], s, s_val))
-    if len(tips)>2:
-        for s_val in s_points: points3.append(ca.substitute(tips[2], s, s_val))
-        
 
     P1 = ca.horzcat(*points1)
     P2 = ca.horzcat(*points2)
-    if len(tips)>2:
-        P3 = ca.horzcat(*points3)
 
-    if len(tips)<=2:
-        return ca.Function('arm_shape_func', [q], [P1, P2])
-    else:
-        return ca.Function('arm_shape_func', [q], [P1, P2, P3])
+    return ca.Function('arm_shape_func', [q], [P1, P2])
+
 
 def pcc_dynamics(arm,q, q_dot, tips, jacobians,sim=False):
 
-    m = arm.m
-    m_buoy = arm.m_buoy
+    m = arm.rho * np.pi*(arm.r_o**2 - arm.r_i**2) * arm.L_segs[0] # mass of each segment
+
+
     num_segments = arm.num_segments
     s = arm.s
     M = ca.SX.zeros(2*num_segments, 2*num_segments)
@@ -172,27 +152,23 @@ def pcc_dynamics(arm,q, q_dot, tips, jacobians,sim=False):
     J = ca.vertcat(*jacobians)
 
     if not sim:
-        G_integrand = -m * sum(ca.dot(g_vec, tip) for tip in tips)
-        M_integrand = m * (J.T @ J)
-        D_fluid = 0
+        rho_fluid = arm.rho_air
     else:
-        G_integrand = (m_buoy-m) * sum(ca.dot(g_vec, tip) for tip in tips)
-        M_integrand = (m+m_buoy) * (J.T @ J)
-        D_fluid = 0
-        for i, Ji in enumerate(jacobians):
-            v_i = Ji @ q_dot
-            vmag = ca.norm_2(v_i)
-            Aproj = (2*arm.r_o)*arm.L_segs[i] # projected area per segment
-            D_fluid += 0.5 * arm.rho_water * arm.C_d * Aproj * vmag * (Ji.T @ Ji)
+        rho_fluid = arm.rho_liquid
+
+    m_buoy = rho_fluid * np.pi*(arm.r_o**2 - arm.r_i**2) * arm.L_segs[0] #buoyancy mass of each segment
+    m_displaced = rho_fluid * np.pi*arm.r_o**2 * arm.L_segs[0] #displaced mass of each segment
+
+    G_integrand = (m_buoy-m) * sum(ca.dot(g_vec, tip) for tip in tips)
+    M_integrand = (m+m_displaced) * (J.T @ J)
+    D_fluid = 0
+    for i, Ji in enumerate(jacobians):
+        v_i = Ji @ q_dot
+        vmag = ca.norm_2(v_i)+ 1e-8 # + 1e-6 to be smooth
+        Aproj = (2*arm.r_o)*arm.L_segs[i] # projected area per segment
+        D_fluid += 0.5 * rho_fluid * arm.C_d * Aproj * vmag * (Ji.T @ Ji)
         
-
-    if num_segments==2:
-        D_integrand = (jacobians[0].T @ jacobians[0]) * d_eq[0]+(jacobians[1].T @ jacobians[1]) * d_eq[1] + D_fluid
-
-    elif num_segments==3:
-        D_integrand = (jacobians[0].T @ jacobians[0]) * d_eq[0]+(jacobians[1].T @ jacobians[1]) * d_eq[1]+(jacobians[2].T @ jacobians[2]) * d_eq[2]
-    else:
-        raise ValueError("num_segments must be 2 or 3")
+    D_integrand = (jacobians[0].T @ jacobians[0]) * d_eq[0]+(jacobians[1].T @ jacobians[1]) * d_eq[1] + D_fluid
 
     M = gauss_legendre(M, M_integrand, s)
 
@@ -286,14 +262,14 @@ def circle_trajectory(radius, height, angle, num_points):
 
     return trajectory
 
-'''def taskspace_to_jointspace(arm, traj_xyz, w_reg=1e-4):
+def taskspace_to_jointspace(arm, traj_xyz, w_reg=1e-4):
     """
     Convert a sequence of Cartesian points (Nx3) into joint vectors (Nx, 2*num_segments).
     """
     Nseg = arm.num_segments
     dof = 2 * Nseg
     tip_index = (Nseg - 1)
-    q0 = np.array([0, np.deg2rad(45), 0, np.deg2rad(45)])
+    q0 = np.array([0, np.deg2rad(10), 0, np.deg2rad(10)])
 
     # Variables
     q = ca.SX.sym('q', dof)
@@ -311,7 +287,7 @@ def circle_trajectory(radius, height, angle, num_points):
     solver = ca.nlpsol('ik', 'ipopt', nlp, opts)
 
     # Prepare bounds and initial guess
-    delta = np.array([np.deg2rad(30)]*dof)
+    delta = np.array([np.deg2rad(99999)]*dof)
 
     Q = np.zeros((traj_xyz.shape[0], dof))
     q_prev = q0
@@ -324,9 +300,11 @@ def circle_trajectory(radius, height, angle, num_points):
         Q[i, :] = q_sol
         q_prev = q_sol  # warm-start next point
 
-    return Q'''
+    debug_trajectory_generation_plot(arm, traj_xyz, Q)
 
-def taskspace_to_jointspace(arm, traj_xyz, w_smooth=1e-2):
+    return Q
+
+'''def taskspace_to_jointspace(arm, traj_xyz, w_smooth=1e-6):
     """
     Convert a sequence of Cartesian points (N x 3) into joint vectors (N x 2*num_segments).
     """
@@ -340,20 +318,10 @@ def taskspace_to_jointspace(arm, traj_xyz, w_smooth=1e-2):
     q0 = np.array([np.deg2rad(0), np.deg2rad(10), np.deg2rad(10), np.deg2rad(10)])
     delta = np.deg2rad(20) * np.ones(dof)
 
-    # Decision variables: one row per waypoint
     q = ca.SX.sym('q', num_points, dof)
 
     cost = 0
     constr_vars, constr_lbx, constr_ubx = [], [], []
-
-    w_smooth=1e-6
-    w_acc = 1e-3
-    def joint_diff(i, j):
-        elems = []
-        for k in range(N_seg):
-            # wrap φ, plain for θ
-            elems += [anglediff(q[i, 2*k], q[j, 2*k]),  q[i, 2*k+1] - q[j, 2*k+1]]
-        return ca.vertcat(*elems)
 
     for i in range(num_points):
         i_prev = (i - 1) % num_points
@@ -369,14 +337,6 @@ def taskspace_to_jointspace(arm, traj_xyz, w_smooth=1e-2):
         constr_vars.append(ca.transpose(dq))
         constr_lbx.append(-delta)
         constr_ubx.append(+delta)
-    
-    for i in range(num_points):
-        i_prev = (i - 1) % num_points
-        i_prev2 = (i - 2) % num_points
-        d1_i    = joint_diff(i, i_prev)
-        d1_prev = joint_diff(i_prev, i_prev2)
-        d2      = d1_i - d1_prev
-        cost   += w_acc * ca.sumsqr(d2)
 
     g   = ca.vertcat(*constr_vars)
     glb = np.concatenate(constr_lbx)
@@ -398,9 +358,56 @@ def taskspace_to_jointspace(arm, traj_xyz, w_smooth=1e-2):
     Qsol_mat = ca.reshape(sol['x'], num_points, dof) 
     Qsol = np.array(Qsol_mat)
 
+    debug_trajectory_generation_plot(arm, traj_xyz, Qsol)
+
+    return Qsol'''
+
+def generate_total_trajectory(arm,T,dt,q0,num_mpc_steps,stabilizing_time=0, loop_time=6.0):
+
+    if T < stabilizing_time + loop_time:
+        raise ValueError("Total sim time must be greater than stabilizing_time + loop_time")
+
+    number_of_loops = int(np.ceil((T-stabilizing_time)/loop_time)+1) #+1 to be sure
+
+    # Create trajectory
+
+    # stabilize first at initial position
+    num_stabilize_points = int(stabilizing_time//dt)
+    q_stabilize_traj = np.tile(q0, (num_stabilize_points, 1))
+
+    # follow the circular trajectory
+    xyz_circular_traj = circle_trajectory(radius=0.3, height=0.6, angle=-np.deg2rad(75), num_points=int(loop_time//dt))
+
+    q_traj = taskspace_to_jointspace(arm, xyz_circular_traj)
+    
+    idx0 = np.argmin(np.linalg.norm(q_traj - q0[:2*arm.num_segments], axis=1))
+    q_traj = np.unwrap(np.roll(q_traj, -idx0, axis=0),axis=0) #start at the closest point to q0
+
+    q_dot_traj = np.diff(np.vstack((q_traj,q_traj[0,:])),axis=0)/dt
+    q_circ_traj = np.hstack((q_traj, q_dot_traj))
+
+    q_circ_traj = np.tile(q_circ_traj, (int(number_of_loops), 1)) #more than necessary
+
+    q_tot_traj = np.vstack((q_stabilize_traj, q_circ_traj))
+
+
+    return q_tot_traj[:int(T//dt+num_mpc_steps+2),:], xyz_circular_traj #+1 for the last point, +1 for the diff to be sure
+
+def anglediff(a, b):
+    # CasADi-safe angle difference in [-pi, pi] # used when trying to solve ik smoothness problems
+    return ca.atan2(ca.sin(a - b), ca.cos(a - b))
+
+def debug_trajectory_generation_plot(arm, traj_xyz, Qsol):
+
+    # NB: This function has been AI generated and may require adjustments.
+    # Used for debugging purposes only.
+
+    N_seg = arm.num_segments
+    num_points = traj_xyz.shape[0]
+    dof = 2 * N_seg
     q_row = ca.SX.sym('q_row', dof)
     tips_row, _ = pcc_forward_kinematics(arm.s, q_row, arm.L_segs, num_segments=N_seg)
-    p_tip_row = ca.substitute(tips_row[tip_index], arm.s, 1.0)
+    p_tip_row = ca.substitute(tips_row[N_seg - 1], arm.s, 1.0)
     fk_tip = ca.Function('fk_tip', [q_row], [p_tip_row])
 
     # Evaluate tip positions for the solved joint path
@@ -445,43 +452,4 @@ def taskspace_to_jointspace(arm, traj_xyz, w_smooth=1e-2):
     ax2.legend(ncol=max(1, N_seg//2), fontsize=8)
     plt.tight_layout()
     plt.show()
-
-    return Qsol
-
-def generate_total_trajectory(arm,T,dt,q0,num_mpc_steps,stabilizing_time=1.0, loop_time=6.0):
-
-    if T < stabilizing_time + loop_time:
-        raise ValueError("Total sim time must be greater than stabilizing_time + loop_time")
-
-    number_of_loops = int(np.ceil((T-stabilizing_time)/loop_time)+1) #+1 to be sure
-
-    # Create trajectory
-
-    # stabilize first at initial position
-    num_stabilize_points = int(stabilizing_time//dt)
-    q_stabilize_traj = np.tile(q0, (num_stabilize_points, 1))
-
-    # follow the circular trajectory
-    xyz_circular_traj = circle_trajectory(radius=0.3, height=0.6, angle=-np.deg2rad(75), num_points=int(loop_time//dt))
-
-    q_traj = taskspace_to_jointspace(arm, xyz_circular_traj)
-    
-    idx0 = np.argmin(np.linalg.norm(q_traj - q0[:2*arm.num_segments], axis=1))
-    q_traj = np.unwrap(np.roll(q_traj, -idx0, axis=0),axis=0) #start at the closest point to q0
-
-    #q_dot_traj = np.gradient(q_traj, dt, axis=0, edge_order=2)
-    q_dot_traj = np.diff(np.vstack((q_traj,q_traj[0,:])),axis=0)/dt
-    q_circ_traj = np.hstack((q_traj, q_dot_traj))
-
-
-    q_circ_traj = np.tile(q_circ_traj, (int(number_of_loops), 1)) #more than necessary
-
-    q_tot_traj = np.vstack((q_stabilize_traj, q_circ_traj))
-
-
-    return q_tot_traj[:int(T//dt+num_mpc_steps+2),:], xyz_circular_traj #+1 for the last point, +1 for the diff to be sure
-
-def anglediff(a, b):
-    # CasADi-safe angle difference in [-pi, pi]
-    return ca.atan2(ca.sin(a - b), ca.cos(a - b))
 

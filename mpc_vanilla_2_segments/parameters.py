@@ -22,8 +22,7 @@ u_bound = 20
 rho_water = 1000 #density of water
 rho_air = 1.225 #density of air
 
-m_buoy = rho_water * A * L #buoyancy mass of each segment
-# m_buoy = rho_air * A * L #buoyancy mass of each segment
+rho_liquid = rho_water  # density of the surrounding fluid
 
 
 horizon_time = 2  #seconds
@@ -38,43 +37,26 @@ MPC_PARAMETERS = {
     "R": np.eye(2*num_segments),
     "u_bound": u_bound,
 }
-if num_segments==2:
-    SIM_PARAMETERS = {
-        "dt": dt,
-        "T": 10,
-        "x0": np.array([
-            np.deg2rad(45), np.deg2rad(45), np.deg2rad(45), np.deg2rad(45),
-            0, 0, 0, 0
-        ]),
-    }
 
-    ARM_PARAMETERS = {
-        "L_segs": [L, L],
-        "r_o": r_o,
-        "m": m,
-        "d_eq": [d, d],
-        "K": np.diag([k_phi, k_theta, k_phi, k_theta]),
-        "num_segments": num_segments,
-        "m_buoy": m_buoy,
-    }
+SIM_PARAMETERS = {
+    "dt": dt,
+    "T": 10,
+    "x0": np.array([
+        np.deg2rad(45), np.deg2rad(45), np.deg2rad(45), np.deg2rad(45),
+        0, 0, 0, 0
+    ]),
+}
 
-elif num_segments==3:
-    ARM_PARAMETERS = {
-        "L_segs": [L, L, L],
-        "m": m,
-        "d_eq": [d, d, d],
-        "K": np.diag([k_phi, k_theta, k_phi, k_theta, k_phi, k_theta]),
-        "num_segments": num_segments,
-    }
-
-    SIM_PARAMETERS = {
-        "dt": dt,
-        "T": 4,
-        "x0": np.array([
-            0, np.deg2rad(90), 0, np.deg2rad(-120), 0, np.deg2rad(120),
-            0, 0, 0, 0, 0, 0
-        ]),
-    }
+ARM_PARAMETERS = {
+    "L_segs": [L, L],
+    "r_o": r_o,
+    "r_i": r_i,
+    "rho_arm": rho,
+    "d_eq": [d, d],
+    "K": np.diag([k_phi, k_theta, k_phi, k_theta]),
+    "num_segments": num_segments,
+    "rho_liquid": rho_liquid,
+}
 
 '''print("MPC_PARAMETERS:", MPC_PARAMETERS)
 print("ARM_PARAMETERS:", ARM_PARAMETERS)

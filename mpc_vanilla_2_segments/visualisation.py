@@ -43,19 +43,12 @@ def history_plot(pcc_arm,u_bound,xyz_traj=None):
 
     points1 = []
     points2 = []
-    if pcc_arm.num_segments ==3:
-        points3 = []
 
     for x in history:
         q = x[:2*pcc_arm.num_segments]
-        if pcc_arm.num_segments==2:
-            segment1, segment2 = pcc_arm.shape_func(q)
-        elif pcc_arm.num_segments==3:
-            segment1, segment2, segment3 = pcc_arm.shape_func(q)
+        segment1, segment2 = pcc_arm.shape_func(q)
         points1.append(segment1.full())
         points2.append(segment2.full())
-        if pcc_arm.num_segments ==3:
-            points3.append(segment3.full())
 
     tip_trajectory = np.array(points2)[:,:,-1] # (N, 3)
 
@@ -68,11 +61,7 @@ def history_plot(pcc_arm,u_bound,xyz_traj=None):
     line2=ax.plot(points2[0][0,:], points2[0][1,:], points2[0][2,:],'r-', label='Segment 2')
     tip_line = ax.plot(tip_trajectory[0,0], tip_trajectory[0,1], tip_trajectory[0,2],'g-', label='Tip trajectory')
 
-    if pcc_arm.num_segments ==3:
-        line3=ax.plot(points3[0][0,:], points3[0][1,:], points3[0][2,:],'m-', label='Segment 3')
-        lines = [line1[0], line2[0], line3[0]]
-    else:
-        lines = [line1[0], line2[0]]
+    lines = [line1[0], line2[0]]
 
     # Setting the Axes properties
     max_length = np.sum(pcc_arm.L_segs)
@@ -86,26 +75,15 @@ def history_plot(pcc_arm,u_bound,xyz_traj=None):
         ax.plot(xyz_traj[:,0], xyz_traj[:,1], xyz_traj[:,2],'k--', label='Target trajectory')
         ax.legend()
 
-
-
     # Creating the Animation object
-    if pcc_arm.num_segments==2:
-        ani = animation.FuncAnimation(
-            fig, 
-            func=update_line, 
-            frames=len(history), 
-            fargs=(points1, points2, None, lines,tip_line[0], tip_trajectory),
-            interval=pcc_arm.dt * 1000
-        )
-    elif pcc_arm.num_segments==3:
-        ani = animation.FuncAnimation(
-            fig, 
-            func=update_line, 
-            frames=len(history), 
-            fargs=(points1, points2, points3, lines),
+    ani = animation.FuncAnimation(
+        fig, 
+        func=update_line, 
+        frames=len(history), 
+        fargs=(points1, points2, lines, tip_line[0], tip_trajectory),
         interval=pcc_arm.dt * 1000
     )
-
+    #ani.save('air_water.mp4', writer='ffmpeg')
     plt.show()
 
 def normalize(M,u_bound,num_segments, eps=1e-8):
@@ -122,18 +100,14 @@ def normalize(M,u_bound,num_segments, eps=1e-8):
     np.divide(M, divider.reshape(-1,1), out=out, where=divider.reshape(-1,1) >= eps)
     return out
 
-def update_line(num, points1, points2, points3, lines, tip_line=None, tip_trajectory=None):
+def update_line(num, points1, points2, lines, tip_line=None, tip_trajectory=None):
     pts1 = points1[num]
     pts2 = points2[num]
-    if points3 is not None:
-        pts3 = points3[num]
     lines[0].set_data(pts1[0, :], pts1[1, :])
     lines[0].set_3d_properties(pts1[2, :])
     lines[1].set_data(pts2[0, :], pts2[1, :])
     lines[1].set_3d_properties(pts2[2, :])
-    if points3 is not None:
-        lines[2].set_data(pts3[0, :], pts3[1, :])
-        lines[2].set_3d_properties(pts3[2, :])
+
     if tip_line is not None:
         tip_line.set_data(tip_trajectory[:num+1,0], tip_trajectory[:num+1,1])
         tip_line.set_3d_properties(tip_trajectory[:num+1,2])
