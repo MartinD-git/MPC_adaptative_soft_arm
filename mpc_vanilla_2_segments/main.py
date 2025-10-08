@@ -19,7 +19,7 @@ def main():
 
     #generate circular trajectory (N,4*num_segments)
     print("Generating trajectory")
-    q_tot_traj, xyz_circular_traj = generate_total_trajectory(pcc_arm,SIM_PARAMETERS['T'],SIM_PARAMETERS['dt'],SIM_PARAMETERS['x0'],N,stabilizing_time=1.0, loop_time=4.0)
+    q_tot_traj, xyz_circular_traj = generate_total_trajectory(pcc_arm,SIM_PARAMETERS['T'],SIM_PARAMETERS['dt'],SIM_PARAMETERS['x0'],N,stabilizing_time=0, loop_time=8.0)
     print("Trajectory is generated")
     opti= ca.Opti()
 
@@ -82,7 +82,7 @@ def main():
                 'warm_start_bound_push': 1e-6,
                 'warm_start_mult_bound_push': 1e-6
             },
-            #'ipopt.print_level': 0, 'print_time': 0, 'ipopt.sb': 'yes'
+            'ipopt.print_level': 0, 'print_time': 0, 'ipopt.sb': 'yes'
         }
     )
     # create generalized force to tendon tension solver
@@ -93,8 +93,10 @@ def main():
 
     # Simu loop
     num_iter = int(SIM_PARAMETERS['T']/SIM_PARAMETERS['dt'])
-    with tqdm(total=num_iter*SIM_PARAMETERS['dt'], desc="MPC loop",bar_format = '{l_bar}{bar}| {n:.2f}/{total_fmt} ''[{elapsed}<{remaining}]') as pbar:
+    with tqdm(total=num_iter*SIM_PARAMETERS['dt'], desc="MPC loop", bar_format='{l_bar}{bar}| {n:.2f}/{total_fmt} [{elapsed}<{remaining}, {postfix}]') as pbar:
         for t in range(num_iter):
+            # MPC
+            loop_time_0 = time.time()
 
             q_goal_value = q_tot_traj[t:t+N+1,:].T
             
@@ -127,18 +129,32 @@ def main():
                 # warm-start duals (Ipopt)
                 opti.set_initial(opti.lam_g, sol.value(opti.lam_g))
                 # WARM START OPTI
+                loop_time_1 = time.time()
+
 
                 #convert generalized forces to tensions for the motors
                 p= np.concatenate([pcc_arm.current_state, sol.value(u)[:,0]])
                 tendon_solution = force2tendon_solver(x0=initial_tendon_guess, p=p, lbx=lb_tendon, ubx=ub_tendon)
                 u_tendon = np.array(tendon_solution['x']).flatten()
                 initial_tendon_guess = u_tendon
+                loop_time_2 = time.time()
 
                 # apply the first control input to the real system
                 pcc_arm.next_step(sol.value(u)[:,0])
 
                 pcc_arm.log_history(sol.value(u)[:,0], q_goal_value[:,0],u_tendon)
                 pbar.update(SIM_PARAMETERS['dt'])
+
+                loop_time_3 = time.time()
+                # Timing
+                mpc_time = (loop_time_1 - loop_time_0) * 1000
+                qp_time = (loop_time_2 - loop_time_1) * 1000
+                fk_time = (loop_time_3 - loop_time_2) * 1000
+                total_time = (loop_time_3 - loop_time_0) * 1000
+
+                # Set the postfix with the calculated times
+                pbar.set_postfix(MPC=f'{mpc_time:.2f}ms', QP=f'{qp_time:.2f}ms', FK=f'{fk_time:.2f}ms', Total=f'{total_time:.2f}ms', refresh=True)
+
 
             except:
                 traceback.print_exc()

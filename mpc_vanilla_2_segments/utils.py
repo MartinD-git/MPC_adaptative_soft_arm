@@ -376,7 +376,7 @@ def generate_total_trajectory(arm,T,dt,q0,num_mpc_steps,stabilizing_time=0, loop
     q_stabilize_traj = np.tile(q0, (num_stabilize_points, 1))
 
     # follow the circular trajectory
-    xyz_circular_traj = circle_trajectory(radius=0.3, height=0.6, angle=-np.deg2rad(75), num_points=int(loop_time//dt))
+    xyz_circular_traj = circle_trajectory(radius=0.6*arm.L_segs[0], height=0.8*arm.L_segs[0], angle=-np.deg2rad(75), num_points=int(loop_time//dt))
 
     q_traj = taskspace_to_jointspace(arm, xyz_circular_traj)
     
@@ -438,7 +438,7 @@ def debug_trajectory_generation_plot(arm, traj_xyz, Qsol):
     phi_deg   = phi_un * rad2deg
     theta_deg = theta   * rad2deg
 
-    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(7, 5), sharex=True)
+    fig, (ax1, ax2) = plt.subplots(2, 1, sharex=True)
 
     for k in range(N_seg):
         ax1.plot(phi_deg[:, k], label=f'φ{k+1}')

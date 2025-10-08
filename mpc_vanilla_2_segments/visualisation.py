@@ -46,9 +46,8 @@ def history_plot(pcc_arm,u_bound,xyz_traj=None):
 
     labels = [r'$T_1$', r'$T_2$', r'$T_3$']
     color = ['b', 'r', 'm']
-    print(history_u_tendon.shape)
     for i in range(pcc_arm.num_segments):
-        for k in range(2):
+        for k in range(3):
             axs[i].plot(time, history_u_tendon[:,i+k], label=labels[k], linestyle='-', color=color[k])
         axs[i].set_title(f'Segment {i+1}')
         axs[i].set_xlabel('Time [s]')

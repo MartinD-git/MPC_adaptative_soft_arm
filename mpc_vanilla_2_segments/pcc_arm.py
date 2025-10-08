@@ -17,7 +17,7 @@ class PCCSoftArm:
         self.sigma_k = arm_param_dict['sigma_k']
         self.rho_air = 1.225 # kg/m^3
         self.C_d = 1.17  # drag coefficient, approx for cylinder
-        self.max_tension = 50  # max tension for each tendon
+        self.max_tension = arm_param_dict['maximum_tension']  # max tension for each tendon
         self.dt = dt
         self.current_state = None
         self.history = []
@@ -38,7 +38,7 @@ class PCCSoftArm:
         self.shape_func = shape_function(q, tips,self.s)
 
         # compute the dynamics
-        dynamics_func = pcc_dynamics(self,q, q_dot, tips, jacobians,sim=False)
+        dynamics_func = pcc_dynamics(self,q, q_dot, tips, jacobians,sim=True)
         dynamics_func_sim = pcc_dynamics(self,q, q_dot, tips, jacobians,sim=True)
         print("Dynamics done")
         # create integrators
