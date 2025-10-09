@@ -73,7 +73,7 @@ def setup_ocp_solver(pcc_arm, MPC_PARAMETERS, N, Tf):
     # Use a slightly finer simulation inside multiple shooting
     ocp.solver_options.integrator_type = 'ERK'              # (implicit requires f_impl)
     ocp.solver_options.sim_method_num_stages = 4
-    ocp.solver_options.sim_method_num_steps = 5             # default is often too low for stiff-ish mech. dyn.
+    ocp.solver_options.sim_method_num_steps = 8             # default is often too low for stiff-ish mech. dyn.
 
     acados_ocp_solver = AcadosOcpSolver(ocp)
 
@@ -118,6 +118,30 @@ def mpc_step_acados(ocp_solver, x0, q_goal,N):
             ocp_solver.set(i, 'u', np.zeros(nu))
         ocp_solver._ws_init = True
 
+    # lock x0 at stage 0
+    ocp_solver.set(0, 'lbx', x0)
+    ocp_solver.set(0, 'ubx', x0)
+
+    status = ocp_solver.solve()
+
+    if status != 0:
+        # Safely query only fields that exist on this build
+        def _gs(key):
+            try:
+                return ocp_solver.get_stats(key)
+            except Exception:
+                return None
+
+        print("acados status:", status)
+        print("iters -> sqp:", _gs('sqp_iter'), " nlp:", _gs('nlp_iter'), " qp:", _gs('qp_iter'))
+        print("alpha:", _gs('alpha'))
+        print("res_stat_all:", _gs('res_stat_all'))
+        print("res_eq_all:", _gs('res_eq_all'))
+        print("residuals:", _gs('residuals'))
+        print("time_tot:", _gs('time_tot'), " time_qp:", _gs('time_qp'))
+
+    u0 = ocp_solver.get(0, 'u')
+    return u0
     # solve
     u0 = ocp_solver.solve_for_x0(x0)
 
