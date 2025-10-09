@@ -200,11 +200,16 @@ def pcc_dynamics(arm,q, q_dot, tips, jacobians,sim=False):
     q_dot_from_x = x[2*num_segments:]
 
     # Calculate q_ddot
+    '''M_term= M_func(q_from_x)+1e-6* ca.DM.eye(2*num_segments)
+    C_term= C_vec_func(q_from_x, q_dot_from_x)
+    G_term= G_func(q_from_x)
+    D_term= D_func(q_from_x, q_dot_from_x) @ q_dot_from_x
+    K_term= K @ q_from_x'''
     M_term= M_func(q0[:2*num_segments])+1e-6* ca.DM.eye(2*num_segments)
     C_term= C_vec_func(q0[:2*num_segments], q0[2*num_segments:])
     G_term= G_func(q0[:2*num_segments])
-    D_term= D_func(q0[:2*num_segments], q0[2*num_segments:]) @ q0[2*num_segments:]
-    K_term= K @ q0[:2*num_segments]
+    D_term= D_func(q0[:2*num_segments], q0[2*num_segments:]) @ q_dot_from_x
+    K_term= K @ q_from_x
 
     #q_ddot = ca.solve(M_term , u - C_term - G_term - D_term - K_term) #Ax=b
 
