@@ -73,7 +73,7 @@ int pcc_arm_ocp_acados_sim_create(pcc_arm_ocp_sim_solver_capsule * capsule)
     const int np = PCC_ARM_OCP_NP;
     bool tmp_bool;
 
-    double Tsim = 0.1;
+    double Tsim = 0.05;
 
     external_function_opts ext_fun_opts;
     external_function_opts_set_to_default(&ext_fun_opts);

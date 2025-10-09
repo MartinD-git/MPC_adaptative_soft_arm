@@ -300,7 +300,7 @@ def taskspace_to_jointspace(arm, traj_xyz, w_reg=1e-4):
         Q[i, :] = q_sol
         q_prev = q_sol  # warm-start next point
 
-    debug_trajectory_generation_plot(arm, traj_xyz, Q)
+    #debug_trajectory_generation_plot(arm, traj_xyz, Q)
 
     return Q
 
