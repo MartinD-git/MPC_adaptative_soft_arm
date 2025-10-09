@@ -362,7 +362,11 @@ def taskspace_to_jointspace(arm, traj_xyz, w_reg=1e-4):
 
     return Qsol'''
 
-def generate_total_trajectory(arm,T,dt,q0,num_mpc_steps,stabilizing_time=0, loop_time=6.0):
+def generate_total_trajectory(arm,SIM_PARAMETERS,N,stabilizing_time=0, loop_time=6.0):
+
+    T = SIM_PARAMETERS['T']
+    dt = SIM_PARAMETERS['dt']
+    q0 = SIM_PARAMETERS['x0']
 
     if T < stabilizing_time + loop_time:
         raise ValueError("Total sim time must be greater than stabilizing_time + loop_time")
@@ -391,7 +395,7 @@ def generate_total_trajectory(arm,T,dt,q0,num_mpc_steps,stabilizing_time=0, loop
     q_tot_traj = np.vstack((q_stabilize_traj, q_circ_traj))
 
 
-    return q_tot_traj[:int(T//dt+num_mpc_steps+2),:], xyz_circular_traj #+1 for the last point, +1 for the diff to be sure
+    return q_tot_traj[:int(T//dt+N+2),:], xyz_circular_traj #+1 for the last point, +1 for the diff to be sure
 
 def anglediff(a, b):
     # CasADi-safe angle difference in [-pi, pi] # used when trying to solve ik smoothness problems

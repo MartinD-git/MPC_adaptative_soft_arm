@@ -38,11 +38,11 @@ class PCCSoftArm:
         self.shape_func = shape_function(q, tips,self.s)
 
         # compute the dynamics
-        dynamics_func = pcc_dynamics(self,q, q_dot, tips, jacobians,sim=True)
+        self.dynamics_func = pcc_dynamics(self,q, q_dot, tips, jacobians,sim=True)
         dynamics_func_sim = pcc_dynamics(self,q, q_dot, tips, jacobians,sim=True)
         print("Dynamics done")
         # create integrators
-        self.integrator = dynamics2integrator(self,dynamics_func)
+        self.integrator = dynamics2integrator(self,self.dynamics_func)
         self.integrator_sim = dynamics2integrator(self,dynamics_func_sim)
 
     def next_step(self, u):
