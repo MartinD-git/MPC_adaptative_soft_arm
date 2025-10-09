@@ -48,7 +48,7 @@ SIM_PARAMETERS = {
         np.deg2rad(45), np.deg2rad(45), np.deg2rad(45), np.deg2rad(45),
         0, 0, 0, 0
     ]),
-    "T_loop": 10,  # seconds
+    "T_loop": 6,  # seconds
 }
 
 ARM_PARAMETERS = {

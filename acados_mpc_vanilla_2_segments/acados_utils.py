@@ -65,6 +65,16 @@ def setup_ocp_solver(pcc_arm, MPC_PARAMETERS, N, Tf):
 
     # Generate & compile
     ocp.code_export_directory = 'c_generated_code_pcc_ocp'
+
+    ocp.solver_options.nlp_solver_type = 'SQP'              # more than 1 Gauss-Newton step per solve
+    ocp.solver_options.nlp_solver_max_iter = 50             # allow iterations when needed
+    ocp.solver_options.qp_warm_start = 1
+
+    # Use a slightly finer simulation inside multiple shooting
+    ocp.solver_options.integrator_type = 'ERK'              # (implicit requires f_impl)
+    ocp.solver_options.sim_method_num_stages = 4
+    ocp.solver_options.sim_method_num_steps = 5             # default is often too low for stiff-ish mech. dyn.
+
     acados_ocp_solver = AcadosOcpSolver(ocp)
 
     return acados_ocp_solver
@@ -100,6 +110,13 @@ def mpc_step_acados(ocp_solver, x0, q_goal,N):
         yref_i = np.hstack([q_goal[:, i], np.zeros(nu)])
         ocp_solver.set(i, 'yref', yref_i)
     ocp_solver.set(N, 'yref', q_goal[:, N])  # terminal
+
+    if not hasattr(ocp_solver, "_ws_init"):
+        for i in range(N+1):
+            ocp_solver.set(i, 'x', x0)     # flat initial guess
+        for i in range(N):
+            ocp_solver.set(i, 'u', np.zeros(nu))
+        ocp_solver._ws_init = True
 
     # solve
     u0 = ocp_solver.solve_for_x0(x0)
