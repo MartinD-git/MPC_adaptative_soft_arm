@@ -140,7 +140,7 @@ int pcc_arm_ocp_acados_sim_create(pcc_arm_ocp_sim_solver_capsule * capsule)
  
     tmp_int = 4;
     sim_opts_set(pcc_arm_ocp_sim_config, pcc_arm_ocp_sim_opts, "num_stages", &tmp_int);
-    tmp_int = 8;
+    tmp_int = 1;
     sim_opts_set(pcc_arm_ocp_sim_config, pcc_arm_ocp_sim_opts, "num_steps", &tmp_int);
     tmp_bool = 0;
     sim_opts_set(pcc_arm_ocp_sim_config, pcc_arm_ocp_sim_opts, "jac_reuse", &tmp_bool);

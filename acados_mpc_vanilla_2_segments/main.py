@@ -1,9 +1,9 @@
 
 
 '''
-Changes: in pcc dynamics apply choleski , remove M symetry,Most important put back q0 instead of x for the dynamics matrices.
 
 Check why it comes back to zero when simu is different, this did not happeen with casadi, is it the new parameters??
+
 '''
 
 

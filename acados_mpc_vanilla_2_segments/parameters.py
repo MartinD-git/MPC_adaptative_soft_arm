@@ -19,7 +19,7 @@ k_phi = 0
 k_theta = 0.015634 #gotten from static simulation or (E*I)/L
 xi=0.2
 d = 2*xi*1.875**2 * np.sqrt((rho*A*E*I)/(L**2))
-tension_bound = 2/0.05 *100#2 is motor limit, shaft is at 0.01m
+tension_bound = 2/0.05 #2 is motor limit, shaft is at 0.01m
 u_bound = tension_bound*r_d
 
 rho_water = 1000 #density of water
