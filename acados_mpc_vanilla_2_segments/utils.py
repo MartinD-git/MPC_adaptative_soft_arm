@@ -175,7 +175,7 @@ def pcc_dynamics(arm,q, q_dot, tips, jacobians,sim=False):
     G_pot = gauss_legendre(G_pot, G_integrand, s)
     G = ca.gradient(G_pot, q)
 
-    D = gauss_legendre(D, D_integrand, s)
+    D = gauss_legendre(D, D_integrand, s) +1e-3* np.eye(2*num_segments)
 
     M_func = ca.Function('M_func', [q], [M])
     G_func = ca.Function('G_func', [q], [G])
@@ -193,28 +193,36 @@ def pcc_dynamics(arm,q, q_dot, tips, jacobians,sim=False):
 
     x = ca.SX.sym('x', 4*num_segments)
     u = ca.SX.sym('u', 2*num_segments)
-    q0 = ca.SX.sym('x', 4*num_segments)
+    q0 = ca.SX.sym('q0', 4*num_segments)
     K = arm.K
 
     q_from_x = x[:2*num_segments]
     q_dot_from_x = x[2*num_segments:]
 
     # Calculate q_ddot
-    M_term= M_func(q0[:2*num_segments])+1e-8* np.eye(2*num_segments)
+    M_term = M_func(x[:2*num_segments]) + 1e-5 * np.eye(2*num_segments)
+    C_term = C_vec_func(x[:2*num_segments], x[2*num_segments:])
+    G_term = G_func(x[:2*num_segments])
+    D_term = D_func(x[:2*num_segments], x[2*num_segments:]) @ x[2*num_segments:]
+    K_term = K @ x[:2*num_segments]
+
+    '''M_term= M_func(q0[:2*num_segments])+1e-5* ca.DM.eye(2*num_segments)
     C_term= C_vec_func(q0[:2*num_segments], q0[2*num_segments:])
     G_term= G_func(q0[:2*num_segments])
     D_term= D_func(q0[:2*num_segments], q0[2*num_segments:]) @ q0[2*num_segments:]
-    K_term= K @ q0[:2*num_segments]
+    K_term= K @ q0[:2*num_segments]'''
 
     #q_ddot = ca.solve(M_term , u - C_term - G_term - D_term - K_term) #Ax=b
 
     #added for speed
     rhs = u - C_term - G_term - D_term - K_term
 
-    # Robust SPD solve via Cholesky
+    '''# Robust SPD solve via Cholesky
     R = ca.chol(M_term) # M_term = R.T @ R
     y = ca.solve(R.T, rhs)  # R^T y = rhs
-    q_ddot = ca.solve(R, y) # R q_ddot = y
+    q_ddot = ca.solve(R, y) # R q_ddot = y'''
+    Mx = 0.5*(M_term + M_term.T)
+    q_ddot = ca.solve(Mx, rhs)
     x_dot = ca.vertcat(q_dot_from_x, q_ddot)
 
     return ca.Function('pcc_f', [x, u,q0], [x_dot])
@@ -456,4 +464,3 @@ def debug_trajectory_generation_plot(arm, traj_xyz, Qsol):
     ax2.legend(ncol=max(1, N_seg//2), fontsize=8)
     plt.tight_layout()
     plt.show()
-

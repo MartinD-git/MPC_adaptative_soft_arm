@@ -19,7 +19,7 @@ k_phi = 0
 k_theta = 0.015634 #gotten from static simulation or (E*I)/L
 xi=0.2
 d = 2*xi*1.875**2 * np.sqrt((rho*A*E*I)/(L**2))
-tension_bound = 1/0.05 #2 is motor limit, shaft is at 0.01m
+tension_bound = 2/0.05 *100#2 is motor limit, shaft is at 0.01m
 u_bound = tension_bound*r_d
 
 rho_water = 1000 #density of water
@@ -29,25 +29,26 @@ rho_liquid = rho_water  # density of the surrounding fluid
 
 
 horizon_time = 3  #seconds
-dt = 0.05  #seconds
+dt = 0.1  #seconds
 
 num_segments = 2
 
 MPC_PARAMETERS = {
     "N": int(np.ceil(horizon_time/dt)),
-    "Q":  np.diag([15]*2*num_segments + [1]*2*num_segments),
-    "Qf": np.diag([15]*2*num_segments + [2]*2*num_segments),  # stronger terminal weight helps convergence
+    "Q":  np.diag([5]*2*num_segments + [1]*2*num_segments),
+    "Qf": np.diag([5]*2*num_segments + [1]*2*num_segments),  # stronger terminal weight helps convergence
     "R": np.eye(2*num_segments),
     "u_bound": u_bound,
 }
 
 SIM_PARAMETERS = {
     "dt": dt,
-    "T": 10,
+    "T": 20,
     "x0": np.array([
         np.deg2rad(45), np.deg2rad(45), np.deg2rad(45), np.deg2rad(45),
         0, 0, 0, 0
     ]),
+    "T_loop": 10,  # seconds
 }
 
 ARM_PARAMETERS = {

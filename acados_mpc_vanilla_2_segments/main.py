@@ -19,7 +19,7 @@ def main():
 
     #generate circular trajectory (N,4*num_segments)
     print("Generating trajectory")
-    q_tot_traj, xyz_circular_traj = generate_total_trajectory(pcc_arm,SIM_PARAMETERS,N,stabilizing_time=0, loop_time=8.0)
+    q_tot_traj, xyz_circular_traj = generate_total_trajectory(pcc_arm,SIM_PARAMETERS,N,stabilizing_time=0, loop_time=SIM_PARAMETERS['T_loop'])
     print("Trajectory is generated")
     
     # Create Acados OCP solver

@@ -64,7 +64,7 @@
 #define PCC_ARM_OCP_NY0    12
 #define PCC_ARM_OCP_NY     12
 #define PCC_ARM_OCP_NYN    8
-#define PCC_ARM_OCP_N      60
+#define PCC_ARM_OCP_N      30
 #define PCC_ARM_OCP_NH     0
 #define PCC_ARM_OCP_NHN    0
 #define PCC_ARM_OCP_NH0    0
