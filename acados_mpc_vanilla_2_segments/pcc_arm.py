@@ -1,4 +1,5 @@
 import casadi as ca
+import numpy as np
 
 from utils import pcc_forward_kinematics, pcc_dynamics, shape_function, dynamics2integrator
 
@@ -20,6 +21,7 @@ class PCCSoftArm:
         self.max_tension = arm_param_dict['maximum_tension']  # max tension for each tendon
         self.dt = dt
         self.current_state = None
+        self.true_current_state = None  # for simulation with noise
         self.history = []
         self.history_d = []
         self.history_u = []
@@ -47,15 +49,22 @@ class PCCSoftArm:
 
     def next_step(self, u):
         # simulate one step
-        self.current_state = self.integrator_sim(x0=self.current_state, u=u, q0=self.current_state)['xf'].full().flatten()
+        error =  self.meas_error()
+        self.true_current_state = self.integrator_sim(x0=self.true_current_state, u=u, q0=self.true_current_state)['xf'].full().flatten()
 
-        return self.current_state
+        self.current_state = self.true_current_state + error
+
     
     def log_history(self,u,q_d,u_tendon):
-        self.history.append(self.current_state)
+        self.history.append(self.true_current_state)
         self.history_u.append(u)
         self.history_d.append(q_d)
         self.history_u_tendon.append(u_tendon)
+
+    def meas_error(self):
+        std_angle = np.deg2rad(1)
+        std_velocity = np.deg2rad(1)/self.dt
+        return np.random.normal(0, [std_angle]*2*self.num_segments+[std_velocity]*2*self.num_segments, size=4*self.num_segments)
 
 
 
