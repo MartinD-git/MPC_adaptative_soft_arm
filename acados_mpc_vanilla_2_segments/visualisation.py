@@ -110,9 +110,10 @@ def history_plot(pcc_arm,u_bound,xyz_traj=None):
         interval=pcc_arm.dt * 1000
     )
 
-    print("Saving animation")
+    '''print("Saving animation")
     mpl.rcParams['animation.ffmpeg_path'] = '/usr/bin/ffmpeg'
-    ani.save(out_dir + 'air_water_no_noise.mp4', writer='ffmpeg', fps=int(round(1.0 / pcc_arm.dt)), dpi=200)
+    ani.save(out_dir + 'air_water_with_noise.mp4', writer='ffmpeg', fps=int(round(1.0 / pcc_arm.dt)), dpi=200)
+    print("Animation saved")'''
     plt.show()
 
 def normalize(M,u_bound,num_segments, eps=1e-8):
