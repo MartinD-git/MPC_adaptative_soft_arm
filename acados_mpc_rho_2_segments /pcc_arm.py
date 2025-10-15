@@ -1,7 +1,9 @@
 import casadi as ca
 import numpy as np
 
-from utils import pcc_forward_kinematics, pcc_dynamics, shape_function, dynamics2integrator
+from utils import *
+
+## TO do to go faster don't append history at each step but preallocate the memory!!
 
 class PCCSoftArm:
     def __init__(self, arm_param_dict, dt):
@@ -13,10 +15,9 @@ class PCCSoftArm:
         self.r_o = arm_param_dict['r_o']
         self.r_i = arm_param_dict['r_i']
         self.rho = arm_param_dict['rho_arm']
-        self.rho_liquid = arm_param_dict['rho_liquid']
+        self.history_rho_fluid = [arm_param_dict['rho_fluid_initial']]
         self.r_d = arm_param_dict['r_d']
         self.sigma_k = arm_param_dict['sigma_k']
-        self.rho_air = 1.225 # kg/m^3
         self.C_d = 1.17  # drag coefficient, approx for cylinder
         self.max_tension = arm_param_dict['maximum_tension']  # max tension for each tendon
         self.dt = dt
@@ -40,12 +41,11 @@ class PCCSoftArm:
         self.shape_func = shape_function(q, tips,self.s)
 
         # compute the dynamics
-        self.dynamics_func = pcc_dynamics(self,q, q_dot, tips, jacobians,sim=True)
-        dynamics_func_sim = pcc_dynamics(self,q, q_dot, tips, jacobians,sim=True)
+        self.dynamics_func = pcc_dynamics(self,q, q_dot, tips, jacobians)
+
         print("Dynamics done")
         # create integrators
         self.integrator = dynamics2integrator(self,self.dynamics_func)
-        self.integrator_sim = dynamics2integrator(self,dynamics_func_sim)
 
     def next_step(self, u):
         # simulate one step
@@ -62,8 +62,8 @@ class PCCSoftArm:
         self.history_u_tendon.append(u_tendon)
 
     def meas_error(self):
-        std_angle = 0*np.deg2rad(5)
-        std_velocity = 0*np.deg2rad(5)/self.dt
+        std_angle = np.deg2rad(5)
+        std_velocity = np.deg2rad(5)/self.dt
         return np.random.normal(0, [std_angle]*2*self.num_segments+[std_velocity]*2*self.num_segments, size=4*self.num_segments)
 
 

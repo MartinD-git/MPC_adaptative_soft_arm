@@ -9,7 +9,7 @@ def export_pcc_acados_model(pcc_arm, name="pcc_arm_ocp"):
 
     x = ca.SX.sym('x', nx)
     u = ca.SX.sym('u', nu)
-    p_global = ca.SX.sym('p', nx)  # q0
+    p_global = ca.SX.sym('p', nx+1)  # q0 + rho
 
     model = AcadosModel()
     model.name = name
@@ -61,7 +61,7 @@ def setup_ocp_solver(pcc_arm, MPC_PARAMETERS, N, Tf):
     ocp.constraints.idxbu = np.arange(nu, dtype=int)
 
     ocp.constraints.x0 = np.zeros(nx)
-    ocp.p_global_values = np.zeros(nx)
+    ocp.p_global_values = np.zeros(nx+1)
 
     # Generate & compile
     ocp.code_export_directory = 'c_generated_code_pcc_ocp'
@@ -73,7 +73,7 @@ def setup_ocp_solver(pcc_arm, MPC_PARAMETERS, N, Tf):
 
 def setup_acados_integrator(pcc_arm, dt):
     """
-    Optional external simulator (you can keep using your own integrator_sim if you prefer).
+    Optional external simulator
     """
     sim = AcadosSim()
     sim.model = export_pcc_acados_model(pcc_arm, name="pcc_arm_sim")
@@ -83,7 +83,7 @@ def setup_acados_integrator(pcc_arm, dt):
     return AcadosSimSolver(sim)
 
 
-def mpc_step_acados(ocp_solver, x0, q_goal,N):
+def mpc_step_acados(ocp_solver, x0, q_goal, rho_fluid, N):
 
     nx = ocp_solver.acados_ocp.dims.nx
     nu = ocp_solver.acados_ocp.dims.nu
@@ -92,8 +92,8 @@ def mpc_step_acados(ocp_solver, x0, q_goal,N):
     ocp_solver.set(0, 'lbx', x0)
     ocp_solver.set(0, 'ubx', x0)
 
-    # Parameters p_global = q0 (same at every stage)
-    ocp_solver.set_p_global_and_precompute_dependencies(x0)
+    # Parameters p = q0 (same at every stage)
+    ocp_solver.set_p_global_and_precompute_dependencies(np.vstack([x0, rho_fluid]))
 
     # yref for each stage/terminal
     for i in range(N):
