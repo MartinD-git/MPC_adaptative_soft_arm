@@ -24,7 +24,8 @@ def main():
     N=MPC_PARAMETERS['N']
 
     pcc_arm = PCCSoftArm(ARM_PARAMETERS,SIM_PARAMETERS['dt'])
-    pcc_arm.current_state=SIM_PARAMETERS['x0']
+    pcc_arm.true_current_state=SIM_PARAMETERS['x0']
+    pcc_arm.current_state=pcc_arm.true_current_state + pcc_arm.meas_error()
 
     #generate circular trajectory (N,4*num_segments)
     print("Generating trajectory")

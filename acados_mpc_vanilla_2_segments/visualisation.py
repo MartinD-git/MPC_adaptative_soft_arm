@@ -1,16 +1,20 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
+import matplotlib as mpl
+import os
+
+out_dir = "csv_and_plots/"
 
 def history_plot(pcc_arm,u_bound,xyz_traj=None):
     history = np.array(pcc_arm.history)
     history_d = np.array(pcc_arm.history_d)
     history_u = np.array(pcc_arm.history_u)
     history_u_tendon = np.array(pcc_arm.history_u_tendon)
-    np.savetxt("history_u.csv", history_u, delimiter=",")
-    np.savetxt("history_d.csv", history_d, delimiter=",")
-    np.savetxt("history_angles.csv", history, delimiter=",")
-    np.savetxt("history_u_tendon.csv", history_u_tendon, delimiter=",")
+    np.savetxt(out_dir + "history_u.csv", history_u, delimiter=",")
+    np.savetxt(out_dir + "history_d.csv", history_d, delimiter=",")
+    np.savetxt(out_dir + "history_angles.csv", history, delimiter=",")
+    np.savetxt(out_dir + "history_u_tendon.csv", history_u_tendon, delimiter=",")
 
     M_raw = np.hstack((history, history_d, history_u)).T  # (30, T)
     M = normalize(M_raw,u_bound,pcc_arm.num_segments)
@@ -37,8 +41,9 @@ def history_plot(pcc_arm,u_bound,xyz_traj=None):
             axs[1].plot(time, M[idx[j], :], label=labels[j], linestyle=linestyle[j], color=color[j])
         axs[1].set_title('Theta and Torque')
         axs[1].set_xlabel('Time [s]'); axs[1].set_ylabel('Normalized'); axs[1].legend()
+        plt.tight_layout()
+        plt.savefig(out_dir + f"segment_{i+1}_states_and_torques.png", dpi=200)
 
-    plt.tight_layout()
 
     # tendon plot 
     fig, axs = plt.subplots(2, 1, figsize=(8, 6))
@@ -55,8 +60,8 @@ def history_plot(pcc_arm,u_bound,xyz_traj=None):
         axs[i].set_ylim(0, pcc_arm.max_tension*1.1)
         axs[i].legend()
         
-
     plt.tight_layout()
+    plt.savefig(out_dir + "tendon_tensions.png", dpi=200)
 
     # 3d animation
     #get posture from shape function
@@ -75,6 +80,7 @@ def history_plot(pcc_arm,u_bound,xyz_traj=None):
     # Attaching 3D axis to the figure
     fig = plt.figure()
     ax = fig.add_subplot(projection="3d")
+    ax.set_title("PCC Arm Simulation")
 
     # Create lines initially without data
     line1=ax.plot(points1[0][0,:], points1[0][1,:], points1[0][2,:],'b-', label='Segment 1')
@@ -103,7 +109,10 @@ def history_plot(pcc_arm,u_bound,xyz_traj=None):
         fargs=(points1, points2, lines, tip_line[0], tip_trajectory),
         interval=pcc_arm.dt * 1000
     )
-    #ani.save('air_water.mp4', writer='ffmpeg')
+
+    print("Saving animation")
+    mpl.rcParams['animation.ffmpeg_path'] = '/usr/bin/ffmpeg'
+    ani.save(out_dir + 'air_water_no_noise.mp4', writer='ffmpeg', fps=int(round(1.0 / pcc_arm.dt)), dpi=200)
     plt.show()
 
 def normalize(M,u_bound,num_segments, eps=1e-8):
