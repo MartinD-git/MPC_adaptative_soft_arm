@@ -16,6 +16,7 @@ class PCCSoftArm:
         self.r_i = arm_param_dict['r_i']
         self.rho = arm_param_dict['rho_arm']
         self.history_rho_fluid = [arm_param_dict['rho_fluid_initial']]
+        self.true_rho_fluid = arm_param_dict['true_rho_fluid']
         self.r_d = arm_param_dict['r_d']
         self.sigma_k = arm_param_dict['sigma_k']
         self.C_d = 1.17  # drag coefficient, approx for cylinder
@@ -27,6 +28,9 @@ class PCCSoftArm:
         self.history_d = []
         self.history_u = []
         self.history_u_tendon = []
+        self.history_rho_fluid = []
+
+         # integrator for simulation with true parameters
         self.num_segments = arm_param_dict['num_segments']
 
         self.s = ca.SX.sym('s')
@@ -50,16 +54,17 @@ class PCCSoftArm:
     def next_step(self, u):
         # simulate one step
         error =  self.meas_error()
-        self.true_current_state = self.integrator_sim(x0=self.true_current_state, u=u, q0=self.true_current_state)['xf'].full().flatten()
+        self.true_current_state = self.integrator_sim(x0=self.true_current_state, u=u, q0=self.true_current_state, rho_fluid=self.true_rho_fluid)['xf'].full().flatten()
 
         self.current_state = self.true_current_state + error
 
     
-    def log_history(self,u,q_d,u_tendon):
+    def log_history(self,u,q_d,u_tendon,rho_fluid):
         self.history.append(self.true_current_state)
         self.history_u.append(u)
         self.history_d.append(q_d)
         self.history_u_tendon.append(u_tendon)
+        self.history_rho_fluid.append(rho_fluid)
 
     def meas_error(self):
         std_angle = np.deg2rad(5)

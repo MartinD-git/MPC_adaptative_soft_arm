@@ -48,7 +48,8 @@ def main():
         for t in range(num_iter):
             try:
 
-                # Update the OCP parameters
+                # Update rho fluid based on history
+                
 
 
                 # MPC
