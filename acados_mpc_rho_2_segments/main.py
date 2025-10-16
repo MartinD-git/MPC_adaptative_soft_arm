@@ -55,7 +55,14 @@ def main():
                 loop_time_00 = time.time()
                 # Update rho fluid based on history
                 if pcc_arm.history_index > (MPC_PARAMETERS['N_rho'] + 1):
-                    rho_solver_parameters = np.vstack((pcc_arm.history[:,-(MPC_PARAMETERS['N_rho']+1):], pcc_arm.history_u[:,-(MPC_PARAMETERS['N_rho']+1):])) 
+                    start_idx = pcc_arm.history_index - (MPC_PARAMETERS['N_rho'] + 1)
+                    end_idx = pcc_arm.history_index+1
+                    #To do: use meas states not true states thus creates a new history array
+                    print("shape history:", pcc_arm.history[:,start_idx:end_idx].shape)
+                    print("shape 2:", pcc_arm.true_current_state.shape)
+                    states = np.hstack((pcc_arm.history[:,start_idx:end_idx],pcc_arm.true_current_state.reshape(-1,1))) # add current state because it has not been logged yet
+                    inputs = np.hstack((pcc_arm.history_u[:,start_idx:end_idx],np.zeros((2*pcc_arm.num_segments,1)))) #add zeros that will never be accessed, just for the vstack
+                    rho_solver_parameters = np.vstack((states, inputs)) 
                     rho_fluid_solution = rho_fluid_solver(x0=pcc_arm.history_rho_fluid[pcc_arm.history_index],p=rho_solver_parameters, lbx=lb_rho, ubx=ub_rho)
                     rho_fluid_solution = np.array(rho_fluid_solution['x']).flatten()
                 else:
