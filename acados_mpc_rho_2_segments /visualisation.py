@@ -7,10 +7,11 @@ import os
 out_dir = "csv_and_plots/"
 
 def history_plot(pcc_arm,u_bound,xyz_traj=None):
-    history = np.array(pcc_arm.history)
-    history_d = np.array(pcc_arm.history_d)
-    history_u = np.array(pcc_arm.history_u)
-    history_u_tendon = np.array(pcc_arm.history_u_tendon)
+    history = pcc_arm.history[:, :pcc_arm.history_index].T
+    history_d = pcc_arm.history_d[:, :pcc_arm.history_index].T
+    history_u = pcc_arm.history_u[:, :pcc_arm.history_index].T
+    history_u_tendon = pcc_arm.history_u_tendon[:, :pcc_arm.history_index].T
+    history_rho_fluid = pcc_arm.history_rho_fluid[:pcc_arm.history_index]
     np.savetxt(out_dir + "history_u.csv", history_u, delimiter=",")
     np.savetxt(out_dir + "history_d.csv", history_d, delimiter=",")
     np.savetxt(out_dir + "history_angles.csv", history, delimiter=",")
@@ -62,6 +63,18 @@ def history_plot(pcc_arm,u_bound,xyz_traj=None):
         
     plt.tight_layout()
     #plt.savefig(out_dir + "tendon_tensions.png", dpi=200)
+
+
+    # rho fluid plot
+    plt.figure(figsize=(8, 6))
+    plt.plot(time, history_rho_fluid, 'b-', label='Rho Fluid')
+    plt.hlines(pcc_arm.true_rho_fluid,time[0], time[-1], colors='r', linestyles='--', label='True Rho Fluid')
+    plt.title('Estimated Rho Over Time')
+    plt.xlabel('Time [s]')
+    plt.ylabel('Estimated Rho [kg/m^3]')
+    plt.legend()
+    plt.tight_layout()
+    #plt.savefig(out_dir + "rho_fluid.png", dpi=200)
 
     # 3d animation
     #get posture from shape function

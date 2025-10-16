@@ -93,7 +93,7 @@ def mpc_step_acados(ocp_solver, x0, q_goal, rho_fluid, N):
     ocp_solver.set(0, 'ubx', x0)
 
     # Parameters p = q0 (same at every stage)
-    ocp_solver.set_p_global_and_precompute_dependencies(np.vstack([x0, rho_fluid]))
+    ocp_solver.set_p_global_and_precompute_dependencies(np.hstack([x0, rho_fluid]))
 
     # yref for each stage/terminal
     for i in range(N):

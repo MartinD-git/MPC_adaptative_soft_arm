@@ -40,6 +40,7 @@ MPC_PARAMETERS = {
     "Qf": np.diag([5]*2*num_segments + [1]*2*num_segments),  # stronger terminal weight helps convergence
     "R": np.eye(2*num_segments),
     "u_bound": u_bound,
+    "N_rho": 10, #number of previous steps to consider for rho fluid estimation
 }
 
 SIM_PARAMETERS = {

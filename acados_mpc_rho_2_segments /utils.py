@@ -217,23 +217,24 @@ def pcc_dynamics(arm,q, q_dot, tips, jacobians):
     q_ddot = ca.solve(R, y) # R q_ddot = y
     x_dot = ca.vertcat(q_dot_from_x, q_ddot)
 
-    return ca.Function('pcc_f', [x, u, q0, rho_fluid], [x_dot])
+    return ca.Function('pcc_f', [x, u, ca.vertcat(q0, rho_fluid)], [x_dot])
 
 def dynamics2integrator(pcc_arm,f):
     x0 = ca.MX.sym('x0', 4*pcc_arm.num_segments)
     u  = ca.MX.sym('u', 2*pcc_arm.num_segments) 
     q0 = ca.MX.sym('q0', 4*pcc_arm.num_segments)
     rho_fluid = ca.MX.sym('rho_fluid')
+    p_global = ca.vertcat(q0, rho_fluid)
 
     dt=pcc_arm.dt
 
-    k1 = f(x0,u,q0, rho_fluid)
-    k2 = f(x0 + 0.5*dt*k1,u,q0,rho_fluid)
-    k3 = f(x0 + 0.5*dt*k2,u,q0,rho_fluid)
-    k4 = f(x0 + dt*k3,u,q0,rho_fluid)
+    k1 = f(x0,u, p_global)
+    k2 = f(x0 + 0.5*dt*k1,u, p_global)
+    k3 = f(x0 + 0.5*dt*k2,u, p_global)
+    k4 = f(x0 + dt*k3,u, p_global)
     xf = x0 + (dt/6.0)*(k1 + 2*k2 + 2*k3 + k4)
 
-    F = ca.Function('pcc_F_map', [x0, u, ca.vertcat(q0, rho_fluid)], [xf], ['x0', 'u','q0', 'rho_fluid'], ['xf'])
+    F = ca.Function('pcc_F_map', [x0, u, p_global], [xf], ['x0', 'u','p_global'], ['xf'])
 
     return F
 
@@ -467,8 +468,3 @@ def debug_trajectory_generation_plot(arm, traj_xyz, Qsol):
 # To do: change the dynamics to have a changing rho_fluid, remove the nonsense simulation = true or false. Instead have a "true_rho_fluid" and a current one, initially e.g air
 ## to do: assume no added mass => QP!!
 
-#create the solver
-def rho_fluid_solver(arm,N):
-    dynamics_func = arm.rho_fluid_dynamics #computed in arm init
-    rho_fluid = ca.SX.sym('rho_fluid')
-    

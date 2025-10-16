@@ -21,9 +21,10 @@ from utils import generate_total_trajectory
 
 def main():
     start_time = time.time()
+    num_iter = int(SIM_PARAMETERS['T']/SIM_PARAMETERS['dt'])
     N=MPC_PARAMETERS['N']
 
-    pcc_arm = PCCSoftArm(ARM_PARAMETERS,SIM_PARAMETERS['dt'])
+    pcc_arm = PCCSoftArm(ARM_PARAMETERS,SIM_PARAMETERS['dt'],num_iter)
     pcc_arm.true_current_state=SIM_PARAMETERS['x0']
     pcc_arm.current_state=pcc_arm.true_current_state + pcc_arm.meas_error()
 
@@ -43,7 +44,6 @@ def main():
     ub_tendon = pcc_arm.max_tension*np.ones(3*pcc_arm.num_segments)
 
     # Simu loop
-    num_iter = int(SIM_PARAMETERS['T']/SIM_PARAMETERS['dt'])
     with tqdm(total=num_iter*SIM_PARAMETERS['dt'], desc="MPC loop", bar_format='{l_bar}{bar}| {n:.2f}/{total_fmt} [{elapsed}<{remaining}, {postfix}]') as pbar:
         for t in range(num_iter):
             try:
@@ -64,10 +64,10 @@ def main():
                 initial_tendon_guess = u_tendon
                 loop_time_2 = time.time()
 
+                pcc_arm.log_history(u0, q_goal_value[:,0],u_tendon)
                 # apply the first control input to the real system
                 pcc_arm.next_step(u0)
 
-                pcc_arm.log_history(u0, q_goal_value[:,0],u_tendon)
                 pbar.update(SIM_PARAMETERS['dt'])
 
                 loop_time_3 = time.time()

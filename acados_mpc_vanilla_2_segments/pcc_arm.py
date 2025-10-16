@@ -4,7 +4,7 @@ import numpy as np
 from utils import pcc_forward_kinematics, pcc_dynamics, shape_function, dynamics2integrator
 
 class PCCSoftArm:
-    def __init__(self, arm_param_dict, dt):
+    def __init__(self, arm_param_dict, dt,history_size):
         print("Initializing PCC Soft Arm Model...")
         #define the robot arm
         self.L_segs = arm_param_dict['L_segs']
@@ -20,13 +20,15 @@ class PCCSoftArm:
         self.C_d = 1.17  # drag coefficient, approx for cylinder
         self.max_tension = arm_param_dict['maximum_tension']  # max tension for each tendon
         self.dt = dt
+        self.num_segments = arm_param_dict['num_segments']
         self.current_state = None
         self.true_current_state = None  # for simulation with noise
-        self.history = []
-        self.history_d = []
-        self.history_u = []
-        self.history_u_tendon = []
-        self.num_segments = arm_param_dict['num_segments']
+        self.history = np.zeros((4*self.num_segments, history_size))
+        self.history_d = np.zeros((4*self.num_segments, history_size))
+        self.history_u = np.zeros((2*self.num_segments, history_size))
+        self.history_u_tendon = np.zeros((3*self.num_segments, history_size))
+        self.history_index = 0
+        
 
         self.s = ca.SX.sym('s')
         q = ca.SX.sym('q', 2*self.num_segments)
@@ -56,10 +58,11 @@ class PCCSoftArm:
 
     
     def log_history(self,u,q_d,u_tendon):
-        self.history.append(self.true_current_state)
-        self.history_u.append(u)
-        self.history_d.append(q_d)
-        self.history_u_tendon.append(u_tendon)
+        self.history[:, self.history_index] = self.true_current_state
+        self.history_d[:, self.history_index] = q_d
+        self.history_u[:, self.history_index] = u
+        self.history_u_tendon[:, self.history_index] = u_tendon
+        self.history_index += 1
 
     def meas_error(self):
         std_angle = 0*np.deg2rad(5)
