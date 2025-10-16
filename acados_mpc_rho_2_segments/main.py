@@ -55,15 +55,13 @@ def main():
                 loop_time_00 = time.time()
                 # Update rho fluid based on history
                 if pcc_arm.history_index > (MPC_PARAMETERS['N_rho'] + 1):
-                    start_idx = pcc_arm.history_index - (MPC_PARAMETERS['N_rho'] + 1)
-                    end_idx = pcc_arm.history_index+1
+                    start_idx = pcc_arm.history_index - MPC_PARAMETERS['N_rho']
+                    end_idx = pcc_arm.history_index
                     #To do: use meas states not true states thus creates a new history array
-                    print("shape history:", pcc_arm.history[:,start_idx:end_idx].shape)
-                    print("shape 2:", pcc_arm.true_current_state.shape)
                     states = np.hstack((pcc_arm.history[:,start_idx:end_idx],pcc_arm.true_current_state.reshape(-1,1))) # add current state because it has not been logged yet
                     inputs = np.hstack((pcc_arm.history_u[:,start_idx:end_idx],np.zeros((2*pcc_arm.num_segments,1)))) #add zeros that will never be accessed, just for the vstack
                     rho_solver_parameters = np.vstack((states, inputs)) 
-                    rho_fluid_solution = rho_fluid_solver(x0=pcc_arm.history_rho_fluid[pcc_arm.history_index],p=rho_solver_parameters, lbx=lb_rho, ubx=ub_rho)
+                    rho_fluid_solution = rho_fluid_solver(x0=pcc_arm.history_rho_fluid[pcc_arm.history_index-1],p=rho_solver_parameters, lbx=lb_rho, ubx=ub_rho)
                     rho_fluid_solution = np.array(rho_fluid_solution['x']).flatten()
                 else:
                     rho_fluid_solution = ARM_PARAMETERS['rho_fluid_initial']
@@ -75,7 +73,7 @@ def main():
 
                 q_goal_value = q_tot_traj[t:t+N+1,:].T
 
-                u0 = mpc_step_acados(ocp_solver, pcc_arm.current_state, q_goal_value, pcc_arm.history_rho_fluid[-1], N)
+                u0 = mpc_step_acados(ocp_solver, pcc_arm.current_state, q_goal_value, pcc_arm.history_rho_fluid[pcc_arm.history_index], N)
                 
                 loop_time_1 = time.time()
 
