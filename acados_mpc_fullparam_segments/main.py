@@ -1,6 +1,12 @@
 
 
 '''
+TODO: breaks because M+A becomes not positive definite, calc eigenvalues of M and set a bound on A>-min_eigenvalue(M)+margin
+margin is important because M changes with configuration, so A must be large enough to compensate for all configurations 
+
+Or calc eigenvalues of M at each step and thus change bound on A accordingly, but this is more complex to implement
+
+
 
 Check why it comes back to zero when simu is different, this did not happeen with casadi, is it the new parameters??
 
@@ -64,6 +70,7 @@ def main():
                         print("\n Adapting parameters, error:", error)
                         param_sol = param_solver(x0=pcc_arm.history_adaptive_param[:,pcc_arm.history_index-1],p=adaptative_solver_parameters)
                         param_sol = np.array(param_sol['x']).flatten()
+                        print("\n New parameters:", param_sol)
                     else: 
                         param_sol = pcc_arm.history_adaptive_param[:,pcc_arm.history_index-1]
                 else:
@@ -154,7 +161,7 @@ def create_adaptative_parameters_solver(arm,N):
         # warm-start & early-exit
         'ipopt.warm_start_init_point': 'yes',
         'ipopt.max_iter': 5,
-        'ipopt.max_cpu_time': 0.05,
+        'ipopt.max_cpu_time': 0.01,
         'ipopt.tol': 1e-2,
         'ipopt.acceptable_tol': 5e-2,
         'ipopt.acceptable_iter': 1,
