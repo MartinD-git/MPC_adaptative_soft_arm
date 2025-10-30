@@ -49,41 +49,33 @@ def main():
     lb_tendon = np.zeros(3*pcc_arm.num_segments)
     ub_tendon = pcc_arm.max_tension*np.ones(3*pcc_arm.num_segments)
 
-    #create rho fluid solver
+    #create adaptive solver
     param_solver, error_func = create_adaptative_parameters_solver(pcc_arm, MPC_PARAMETERS['N_rho'])
+    #bounds:
+    lb_adaptive = [-0.001] * pcc_arm.num_adaptive_params
+    ub_adaptive = [0.001]*pcc_arm.num_adaptive_params
 
     # Simu loop
+    best_error = 1e10
+    error_history = []
+    best_error_history = []
+    error_history_time = []
+    best_error_history_time = []
     with tqdm(total=num_iter*SIM_PARAMETERS['dt'], desc="MPC loop", bar_format='{l_bar}{bar}| {n:.2f}/{total_fmt} [{elapsed}<{remaining}, {postfix}]') as pbar:
         for t in range(num_iter):
             try:
                 loop_time_00 = time.time()
-                # Update rho fluid based on history
-                if pcc_arm.history_index > (MPC_PARAMETERS['N_rho'] + 1):
-                    start_idx = pcc_arm.history_index - MPC_PARAMETERS['N_rho']
-                    end_idx = pcc_arm.history_index
-                    #To do: use meas states not true states thus creates a new history array
-                    states = np.hstack((pcc_arm.history[:,start_idx:end_idx],pcc_arm.true_current_state.reshape(-1,1))) # add current state because it has not been logged yet
-                    inputs = np.hstack((pcc_arm.history_u[:,start_idx:end_idx],np.zeros((2*pcc_arm.num_segments,1)))) #add zeros that will never be accessed, just for the vstack
-                    adaptative_solver_parameters = np.vstack((states, inputs)) 
-                    error = error_func(pcc_arm.history_adaptive_param[:,pcc_arm.history_index-1], adaptative_solver_parameters)
-                    if (pcc_arm.history_index % (MPC_PARAMETERS['N_rho'] + 2)) != 0 and error > 1: #solve only if significant error and when data is completely new
-                        print("\n Adapting parameters, error:", error)
-                        param_sol = param_solver(x0=pcc_arm.history_adaptive_param[:,pcc_arm.history_index-1],p=adaptative_solver_parameters)
-                        param_sol = np.array(param_sol['x']).flatten()
-                        print("\n New parameters:", param_sol)
-                    else: 
-                        param_sol = pcc_arm.history_adaptive_param[:,pcc_arm.history_index-1]
-                else:
-                    param_sol = np.zeros(pcc_arm.num_adaptive_params)
-                pcc_arm.history_adaptive_param[:, pcc_arm.history_index] = param_sol
 
 
                 # MPC
                 loop_time_0 = time.time()
 
                 q_goal_value = q_tot_traj[t:t+N+1,:].T
-
-                u0, x1 = mpc_step_acados(ocp_solver, pcc_arm.current_state, q_goal_value, param_sol, N)
+                if t == 0:
+                    adapt_param = pcc_arm.history_adaptive_param[:,0]
+                else:
+                    adapt_param = pcc_arm.history_adaptive_param[:,pcc_arm.history_index-1]
+                u0, x1 = mpc_step_acados(ocp_solver, pcc_arm.current_state, q_goal_value, adapt_param, N)
 
                 loop_time_1 = time.time()
 
@@ -100,6 +92,38 @@ def main():
 
                 pbar.update(SIM_PARAMETERS['dt'])
 
+#######################################
+# Update rho fluid based on history
+                if pcc_arm.history_index > (MPC_PARAMETERS['N_rho'] + 5):
+                    start_idx = pcc_arm.history_index - MPC_PARAMETERS['N_rho']
+                    end_idx = pcc_arm.history_index
+                    #To do: use meas states not true states thus creates a new history array
+                    states = np.hstack((pcc_arm.history[:,start_idx:end_idx],pcc_arm.true_current_state.reshape(-1,1))) # add current state because it has not been logged yet
+                    inputs = np.hstack((pcc_arm.history_u[:,start_idx:end_idx],np.zeros((2*pcc_arm.num_segments,1)))) #add zeros that will never be accessed, just for the vstack
+                    adaptative_solver_parameters = np.vstack((states, inputs)) 
+                    #error = error_func(pcc_arm.history_adaptive_param[:,pcc_arm.history_index-1], adaptative_solver_parameters)
+                    error = np.sum(np.round(np.square(np.linalg.norm(pcc_arm.history[:, t-10:t-1] - pcc_arm.history_pred[:, t-11:t-2], axis=0)), decimals=4))
+                    error_history.append(error)
+                    error_history_time.append(t*SIM_PARAMETERS['dt'])
+                    if error > 0.1 and error < best_error: #solve only if significant error
+                        best_error = error
+                        best_error_history.append(best_error)
+                        best_error_history_time.append(t*SIM_PARAMETERS['dt'])
+                        #solution = param_solver(x0=pcc_arm.history_adaptive_param[:,pcc_arm.history_index-1],p=adaptative_solver_parameters)
+                        solution = param_solver(x0=pcc_arm.history_adaptive_param[:,pcc_arm.history_index-1],p=adaptative_solver_parameters,lbx=lb_adaptive,ubx=ub_adaptive)
+                        param_sol = np.array(solution['x']).flatten()
+                        objective_val = solution['f']
+                        print("\n Adapting parameters, error:", error, "objective value:", objective_val)
+                        print("\n A:", param_sol[:4])
+                        print("\n B:", param_sol[4:8])
+                        print("\n C:", param_sol[8:12])
+                        print("\n D:", param_sol[12:16])
+                    else: 
+                        param_sol = pcc_arm.history_adaptive_param[:,pcc_arm.history_index-1]
+                else:
+                    param_sol = np.zeros(pcc_arm.num_adaptive_params)
+                pcc_arm.history_adaptive_param[:, pcc_arm.history_index] = param_sol
+#######################################
                 loop_time_3 = time.time()
                 # Timing
                 adapt_time = (loop_time_0 - loop_time_00) * 1000
@@ -115,7 +139,14 @@ def main():
             except:
                 traceback.print_exc()
                 break
-
+    import matplotlib.pyplot as plt
+    plt.figure()
+    plt.plot(error_history_time, error_history, label='Error')
+    plt.plot(best_error_history_time, best_error_history, label='Best error')
+    plt.xlabel('Time [s]')
+    plt.ylabel('Error')
+    plt.title('Adaptative parameters error over time')
+    plt.show()
     print("--- %s seconds ---" % (time.time() - start_time))
     history_plot(pcc_arm,MPC_PARAMETERS['u_bound'],xyz_circular_traj)
 
@@ -156,16 +187,23 @@ def create_adaptative_parameters_solver(arm,N):
         cost += ca.sumsqr(q_pred - state_history[:,-(i+1)])
 
     nlp = {'x': p_adaptative, 'p': p, 'f': cost}
-    opts = {
+    '''opts = {
         'ipopt.print_level': 0, 'print_time': 0,
         # warm-start & early-exit
         'ipopt.warm_start_init_point': 'yes',
-        'ipopt.max_iter': 5,
-        'ipopt.max_cpu_time': 0.01,
+        'ipopt.max_cpu_time': 0.1,
         'ipopt.tol': 1e-2,
         'ipopt.acceptable_tol': 5e-2,
         'ipopt.acceptable_iter': 1,
+    }'''
+    opts = {
+        'ipopt.warm_start_init_point': 'yes',
+        'ipopt.acceptable_iter': 1,
+        #'ipopt.max_cpu_time': 0.1,
+        'ipopt.max_iter': 5,
+        'ipopt.print_level': 0, 'print_time': 0,
     }
+    
     solver = ca.nlpsol('adaptative_solver', 'ipopt', nlp, opts)
 
     return solver, ca.Function('error_func', [p_adaptative, p], [cost])

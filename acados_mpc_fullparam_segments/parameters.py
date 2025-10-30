@@ -30,7 +30,7 @@ true_rho_fluid = rho_water  # density of the surrounding fluid
 
 
 horizon_time = 2  #seconds
-dt = 0.05  #seconds
+dt = 0.1  #seconds
 
 num_segments = 2
 
@@ -67,6 +67,7 @@ ARM_PARAMETERS = {
     "r_d": r_d,
     "maximum_tension": tension_bound,
 }
+
 '''print("MPC_PARAMETERS:", MPC_PARAMETERS)
 print("ARM_PARAMETERS:", ARM_PARAMETERS)
 print("SIM_PARAMETERS:", SIM_PARAMETERS)'''

@@ -75,7 +75,7 @@ def history_plot(pcc_arm,u_bound,xyz_traj=None):
     # plot error between prediction and measurement for each state
     fig, ax = plt.subplots(figsize=(8, 6))
 
-    ax.plot(time[1:], history[1:, :] - history_pred[:-1, :])
+    ax.plot(time[1:], np.round(history[1:, :] - history_pred[:-1, :], decimals=4))
     ax.set_title("Error between prediction and measurement")
     ax.set_xlabel("Time [s]")
     ax.set_ylabel("Absolute error")
@@ -86,10 +86,10 @@ def history_plot(pcc_arm,u_bound,xyz_traj=None):
     if SAVE:
         plt.savefig(out_dir + "prediction_error.png", dpi=200)
 
-    # plot error between prediction and measurement for each state
+    # plot error between prediction and measurement
     fig, ax = plt.subplots(figsize=(8, 6))
 
-    ax.plot(time[1:], np.linalg.norm(history[1:, :] - history_pred[:-1, :], axis=1))
+    ax.plot(time[1:], np.round(np.square(np.linalg.norm(history[1:, :] - history_pred[:-1, :], axis=1)), decimals=4))
     ax.set_title("Error between prediction and measurement")
     ax.set_xlabel("Time [s]")
     ax.set_ylabel("Absolute error")

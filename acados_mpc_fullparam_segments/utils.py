@@ -204,7 +204,7 @@ def pcc_dynamics(arm,q, q_dot, tips, jacobians, rho_fluid):
     B_adaptative = ca.diag(p_adaptative[2*num_segments:4*num_segments])
     C_adaptative = ca.diag(p_adaptative[4*num_segments:6*num_segments])
     D_adaptative = p_adaptative[6*num_segments:8*num_segments]
-    E_adaptative = ca.diag(p_adaptative[8*num_segments:10*num_segments])
+    #E_adaptative = ca.diag(p_adaptative[8*num_segments:10*num_segments])
 
     M_term= M_func(q0[:2*num_segments])+ A_adaptative +1e-6* ca.DM.eye(2*num_segments)
     C_term= C_vec_func(q0[:2*num_segments], q0[2*num_segments:])
@@ -212,15 +212,14 @@ def pcc_dynamics(arm,q, q_dot, tips, jacobians, rho_fluid):
     D_term= (D_func(q0[:2*num_segments], q0[2*num_segments:])+ B_adaptative) @ q_dot_from_x
     K_term= (K + C_adaptative) @ q_from_x
 
-    #q_ddot = ca.solve(M_term , u - C_term - G_term - D_term - K_term) #Ax=b
-
     #added for speed
-    rhs = (u + E_adaptative @ u) - C_term - G_term - D_term - K_term
+    rhs = u  - C_term - G_term - D_term - K_term
 
     # Robust SPD solve via Cholesky
-    R = ca.chol(M_term) # M_term = R.T @ R
+    '''R = ca.chol(M_term) # M_term = R.T @ R
     y = ca.solve(R.T, rhs)  # R^T y = rhs
-    q_ddot = ca.solve(R, y) # R q_ddot = y
+    q_ddot = ca.solve(R, y) # R q_ddot = y'''
+    q_ddot = ca.solve(M_term , rhs) #Ax=b
     x_dot = ca.vertcat(q_dot_from_x, q_ddot)
     p_global = ca.vertcat(q0, p_adaptative)
 
@@ -465,13 +464,3 @@ def debug_trajectory_generation_plot(arm, traj_xyz, Qsol):
     ax2.legend(ncol=max(1, N_seg//2), fontsize=8)
     plt.tight_layout()
     plt.show()
-
-
-
-
-#############################################################################################################
-# here are teh functions for the rho opti problem, later utils.py will be separated in multiple files for more clarity, *later*
-##############################################################################################################
-# To do: change the dynamics to have a changing rho_fluid, remove the nonsense simulation = true or false. Instead have a "true_rho_fluid" and a current one, initially e.g air
-## to do: assume no added mass => QP!!
-

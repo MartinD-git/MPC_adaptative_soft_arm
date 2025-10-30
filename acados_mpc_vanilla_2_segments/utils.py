@@ -180,6 +180,7 @@ def pcc_dynamics(arm,q, q_dot, tips, jacobians,sim=False):
     M_func = ca.Function('M_func', [q], [M])
     G_func = ca.Function('G_func', [q], [G])
     D_func = ca.Function('D_func', [q,q_dot], [D])
+    arm.M_func = M_func
 
     # Coriolis C
     M_q = M_func(q)

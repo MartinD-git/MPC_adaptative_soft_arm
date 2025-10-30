@@ -32,7 +32,7 @@ class PCCSoftArm:
         self.history_u = np.zeros((2*self.num_segments, history_size))
         self.history_u_tendon = np.zeros((3*self.num_segments, history_size))
         self.history_index = 0
-        self.num_adaptive_params = 4*5 # 4 per matrix A,B,C,D, E with A xdotdot + B xdot + C x + D + E u
+        self.num_adaptive_params = 4*4 # 4 per matrix A,B,C,D, E with A xdotdot + B xdot + C x + D + E u #removed E
         self.history_adaptive_param = np.zeros((self.num_adaptive_params, history_size))
         
         self.s = ca.SX.sym('s')
@@ -62,11 +62,11 @@ class PCCSoftArm:
         self.true_current_state = self.integrator_true(x0=self.true_current_state, u=u, p_global=np.hstack([self.true_current_state, np.zeros(self.num_adaptive_params)]))['xf'].full().flatten()
 
         self.current_state = self.true_current_state + error
-        self.history[:, self.history_index] = self.current_state
+        #self.history[:, self.history_index] = self.current_state
 
 
     def log_history(self,u,q_d,u_tendon, x1):
-        self.history[:, self.history_index] = self.true_current_state
+        self.history[:, self.history_index] = self.current_state
         self.history_d[:, self.history_index] = q_d
         self.history_u[:, self.history_index] = u
         self.history_u_tendon[:, self.history_index] = u_tendon
