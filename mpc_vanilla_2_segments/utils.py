@@ -210,11 +210,7 @@ def pcc_dynamics(arm,q, q_dot, tips, jacobians,sim=False):
 
     #added for speed
     rhs = u - C_term - G_term - D_term - K_term
-
-    # Robust SPD solve via Cholesky
-    R = ca.chol(M_term) # M_term = R.T @ R
-    y = ca.solve(R.T, rhs)  # R^T y = rhs
-    q_ddot = ca.solve(R, y) # R q_ddot = y
+    q_ddot = ca.solve(M_term , rhs)
     x_dot = ca.vertcat(q_dot_from_x, q_ddot)
 
     return ca.Function('pcc_f', [x, u,q0], [x_dot])
