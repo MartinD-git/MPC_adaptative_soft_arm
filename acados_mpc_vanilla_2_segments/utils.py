@@ -181,6 +181,8 @@ def pcc_dynamics(arm,q, q_dot, tips, jacobians,sim=False):
     G_func = ca.Function('G_func', [q], [G])
     D_func = ca.Function('D_func', [q,q_dot], [D])
     arm.M_func = M_func
+    arm.G_func = G_func
+    arm.D_func = D_func
 
     # Coriolis C
     M_q = M_func(q)
@@ -191,6 +193,7 @@ def pcc_dynamics(arm,q, q_dot, tips, jacobians,sim=False):
 
     c_vec = M_dot_q_dot @ q_dot - KE_grad
     C_vec_func = ca.Function('C_vec_func', [q, q_dot], [c_vec])
+    arm.C_vec_func = C_vec_func
 
     x = ca.SX.sym('x', 4*num_segments)
     u = ca.SX.sym('u', 2*num_segments)

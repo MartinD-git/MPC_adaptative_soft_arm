@@ -42,7 +42,7 @@ def main():
     initial_tendon_guess = 0.1*np.ones(3*pcc_arm.num_segments)
     lb_tendon = np.zeros(3*pcc_arm.num_segments)
     ub_tendon = pcc_arm.max_tension*np.ones(3*pcc_arm.num_segments)
-    min_eigenvalue = []
+    
 
     # Simu loop
     with tqdm(total=num_iter*SIM_PARAMETERS['dt'], desc="MPC loop", bar_format='{l_bar}{bar}| {n:.2f}/{total_fmt} [{elapsed}<{remaining}, {postfix}]') as pbar:
@@ -80,18 +80,10 @@ def main():
 
                 # Set the postfix with the calculated times
                 pbar.set_postfix(MPC=f'{mpc_time:.2f}ms', QP=f'{qp_time:.2f}ms', FK=f'{fk_time:.2f}ms', Total=f'{total_time:.2f}ms', refresh=True)
-                min_eigenvalue.append(np.min(np.linalg.eigvals(pcc_arm.M_func(pcc_arm.current_state[:2*pcc_arm.num_segments]))))
 
             except:
                 traceback.print_exc()
                 break
-    print(f"Minimum eigenvalue: {np.min(min_eigenvalue)}")
-    plt.figure()
-    plt.plot(min_eigenvalue)
-    plt.title("Minimum eigenvalue of Mass matrix over time")
-    plt.xlabel("Time step")
-    plt.ylabel("Minimum eigenvalue (should be >0)")
-    plt.show()
     print("--- %s seconds ---" % (time.time() - start_time))
     history_plot(pcc_arm,MPC_PARAMETERS['u_bound'],xyz_circular_traj)
 
