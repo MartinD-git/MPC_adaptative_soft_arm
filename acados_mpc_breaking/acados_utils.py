@@ -5,7 +5,7 @@ import numpy as np
 
 def export_pcc_acados_model(pcc_arm, name="pcc_arm_ocp"):
     nx = 4 * pcc_arm.num_segments
-    nu = 2 * pcc_arm.num_segments
+    nu = 3 * pcc_arm.num_segments
 
     x = ca.SX.sym('x', nx)
     u = ca.SX.sym('u', nu)
@@ -56,8 +56,8 @@ def setup_ocp_solver(pcc_arm, MPC_PARAMETERS, N, Tf):
     ocp.cost.yref_e = np.zeros(ny_e)
 
     # bounds
-    ocp.constraints.lbu = -u_bound * np.ones(nu)
-    ocp.constraints.ubu = +u_bound * np.ones(nu)
+    ocp.constraints.lbu = u_bound[0] * np.ones(nu)
+    ocp.constraints.ubu = u_bound[1] * np.ones(nu)
     ocp.constraints.idxbu = np.arange(nu, dtype=int)
 
     ocp.constraints.x0 = np.zeros(nx)

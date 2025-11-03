@@ -120,7 +120,7 @@ def normalize(M,u_bound,num_segments, eps=1e-8):
     max_abs = np.max(np.abs(M), axis=1, keepdims=True)  # (n_rows, 1)
 
     angle_limit = np.pi
-    torque_limit = u_bound
+    torque_limit = u_bound[1]
     angle_divider = np.full(2*num_segments, angle_limit)
     velocity_divider = max_abs[2*num_segments:4*num_segments].flatten()
     torque_divider = np.full(2*num_segments, torque_limit)

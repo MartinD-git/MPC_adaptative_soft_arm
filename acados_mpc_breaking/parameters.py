@@ -37,15 +37,15 @@ MPC_PARAMETERS = {
     "N": int(np.ceil(horizon_time/dt)),
     "Q":  np.diag([5]*2*num_segments + [1]*2*num_segments),
     "Qf": np.diag([5]*2*num_segments + [1]*2*num_segments),  # stronger terminal weight helps convergence
-    "R": np.eye(2*num_segments),
-    "u_bound": u_bound,
+    "R": 0.001*np.eye(3*num_segments),
+    "u_bound": [0,20],#[0,tension_bound],
 }
 
 SIM_PARAMETERS = {
     "dt": dt,
     "T": 20,
-    "x0": np.array([
-        np.deg2rad(-45), np.deg2rad(45), np.deg2rad(45), np.deg2rad(45),
+    "x0": np.array([ # phi, theta
+        np.deg2rad(-45), np.deg2rad(45), np.deg2rad(0), np.deg2rad(0), # phi is angle at base, theta is curvature
         0, 0, 0, 0
     ]),
     "T_loop": 10,  # seconds
