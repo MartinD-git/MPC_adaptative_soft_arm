@@ -50,7 +50,8 @@ def main():
                 # MPC
                 loop_time_0 = time.time()
 
-                q_goal_value = q_tot_traj[t:t+N+1,:].T
+                #q_goal_value = q_tot_traj[t:t+N+1,:].T
+                q_goal_value = np.vstack((xyz_circular_traj[t:t+N+1,:].T,q_tot_traj[t:t+N+1,2*pcc_arm.num_segments:].T))  # shifted by one time step
 
                 u0 = mpc_step_acados(ocp_solver, pcc_arm.current_state, q_goal_value, N)
                 
@@ -86,7 +87,7 @@ def main():
                 break
 
     print("--- %s seconds ---" % (time.time() - start_time))
-    history_plot(pcc_arm,MPC_PARAMETERS['u_bound'],xyz_circular_traj)
+    history_plot(pcc_arm,MPC_PARAMETERS['u_bound'],xyz_circular_traj, )
 
 '''def create_force2tendon_function(arm):
     num_segments = arm.num_segments

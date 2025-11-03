@@ -83,7 +83,6 @@ def pcc_forward_kinematics(s, q, L_segs,num_segments=3):
 
     # Chain the transformations
     T_tip1 = pcc_segment_transform(1, phi1, th1, L1)
-    T_tip2 = pcc_segment_transform(1, phi2, th2, L2)
 
     T_global1 = pcc_segment_transform(s, phi1, th1, L1)
     T_global2 = T_tip1 @ pcc_segment_transform(s, phi2, th2, L2)
