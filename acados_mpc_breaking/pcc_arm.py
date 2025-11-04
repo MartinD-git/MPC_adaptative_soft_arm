@@ -36,6 +36,7 @@ class PCCSoftArm:
 
         # compute the kinematics
         tips, jacobians = pcc_forward_kinematics(self.s, q, self.L_segs,self.num_segments)
+        self.end_effector = ca.Function('end_effector', [q], [ca.substitute(tips[1], self.s, 1)])
         print("Kinematics done")
 
         # shape function for visualization
@@ -59,7 +60,7 @@ class PCCSoftArm:
     
     def log_history(self,u,q_d,u_tendon):
         self.history[:, self.history_index] = self.true_current_state
-        self.history_d[:, self.history_index] = q_d
+        #self.history_d[:, self.history_index] = q_d
         self.history_u[:, self.history_index] = u
         self.history_u_tendon[:, self.history_index] = u_tendon
         self.history_index += 1

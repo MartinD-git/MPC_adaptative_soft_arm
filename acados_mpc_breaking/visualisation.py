@@ -112,7 +112,7 @@ def history_plot(pcc_arm,u_bound,xyz_traj=None):
 
     '''print("Saving animation")
     mpl.rcParams['animation.ffmpeg_path'] = '/usr/bin/ffmpeg'
-    ani.save(out_dir + 'air_water_with_noise.mp4', writer='ffmpeg', fps=int(round(1.0 / pcc_arm.dt)), dpi=200)
+    ani.save(out_dir + 'broken_base_tendon.mp4', writer='ffmpeg', fps=int(round(1.0 / pcc_arm.dt)), dpi=200)
     print("Animation saved")'''
     plt.show()
 
@@ -120,7 +120,7 @@ def normalize(M,u_bound,num_segments, eps=1e-8):
     max_abs = np.max(np.abs(M), axis=1, keepdims=True)  # (n_rows, 1)
 
     angle_limit = np.pi
-    torque_limit = u_bound
+    torque_limit = u_bound[1]
     angle_divider = np.full(2*num_segments, angle_limit)
     velocity_divider = max_abs[2*num_segments:4*num_segments].flatten()
     torque_divider = np.full(2*num_segments, torque_limit)

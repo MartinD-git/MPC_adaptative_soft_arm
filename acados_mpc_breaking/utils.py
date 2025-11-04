@@ -83,7 +83,6 @@ def pcc_forward_kinematics(s, q, L_segs,num_segments=3):
 
     # Chain the transformations
     T_tip1 = pcc_segment_transform(1, phi1, th1, L1)
-    T_tip2 = pcc_segment_transform(1, phi2, th2, L2)
 
     T_global1 = pcc_segment_transform(s, phi1, th1, L1)
     T_global2 = T_tip1 @ pcc_segment_transform(s, phi2, th2, L2)
@@ -211,21 +210,31 @@ def pcc_dynamics(arm,q, q_dot, tips, jacobians,sim=False):
     G_term= G_func(q0[:2*num_segments])
     D_term= D_func(q0[:2*num_segments], q0[2*num_segments:]) @ q_dot_from_x
     K_term= K @ q_from_x
+  
+    J_tendon = ca.SX.zeros((3*num_segments, 2*num_segments))
+    u_tendon = ca.SX.sym('u', 3*num_segments)
+
+    for i in range(num_segments):
+        for k in range(3): #number of tendons
+            phi =q0[2*i]
+            theta = q0[1+2*i]
+            J_tendon[k+3*i,2*i] = -theta*arm.r_d*ca.sin(arm.sigma_k[k]-phi)
+            J_tendon[k+3*i,2*i+1] = -arm.r_d*ca.cos(arm.sigma_k[k]-phi)
 
     #q_ddot = ca.solve(M_term , u - C_term - G_term - D_term - K_term) #Ax=b
 
     #added for speed
-    rhs = u - C_term - G_term - D_term - K_term
+    rhs = J_tendon.T @ u_tendon - C_term - G_term - D_term - K_term
 
     # Robust SPD solve via Cholesky
     q_ddot = ca.solve(M_term , rhs)
     x_dot = ca.vertcat(q_dot_from_x, q_ddot)
 
-    return ca.Function('pcc_f', [x, u,q0], [x_dot])
+    return ca.Function('pcc_f', [x, u_tendon, q0], [x_dot])
 
 def dynamics2integrator(pcc_arm,f):
     x0 = ca.MX.sym('x0', 4*pcc_arm.num_segments)
-    u  = ca.MX.sym('u', 2*pcc_arm.num_segments) 
+    u  = ca.MX.sym('u', 3*pcc_arm.num_segments) 
     q0 = ca.MX.sym('q0', 4*pcc_arm.num_segments)
 
     dt=pcc_arm.dt

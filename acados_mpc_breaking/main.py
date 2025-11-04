@@ -38,11 +38,10 @@ def main():
     ocp_solver = setup_ocp_solver(pcc_arm, MPC_PARAMETERS, N, Tf)
 
     # create generalized force to tendon tension solver
-    force2tendon_solver = create_force2tendon_function(pcc_arm)
+    #force2tendon_solver = create_force2tendon_function(pcc_arm)
     initial_tendon_guess = 0.1*np.ones(3*pcc_arm.num_segments)
     lb_tendon = np.zeros(3*pcc_arm.num_segments)
     ub_tendon = pcc_arm.max_tension*np.ones(3*pcc_arm.num_segments)
-    min_eigenvalue = []
 
     # Simu loop
     with tqdm(total=num_iter*SIM_PARAMETERS['dt'], desc="MPC loop", bar_format='{l_bar}{bar}| {n:.2f}/{total_fmt} [{elapsed}<{remaining}, {postfix}]') as pbar:
@@ -51,7 +50,8 @@ def main():
                 # MPC
                 loop_time_0 = time.time()
 
-                q_goal_value = q_tot_traj[t:t+N+1,:].T
+                #q_goal_value = q_tot_traj[t:t+N+1,:].T
+                q_goal_value = np.vstack((xyz_circular_traj[t:t+N+1,:].T,q_tot_traj[t:t+N+1,2*pcc_arm.num_segments:].T))  # shifted by one time step
 
                 u0 = mpc_step_acados(ocp_solver, pcc_arm.current_state, q_goal_value, N)
                 
@@ -60,12 +60,13 @@ def main():
 
                 #convert generalized forces to tensions for the motors
                 p= np.concatenate([pcc_arm.current_state, u0])
-                tendon_solution = force2tendon_solver(x0=initial_tendon_guess, p=p, lbx=lb_tendon, ubx=ub_tendon)
-                u_tendon = np.array(tendon_solution['x']).flatten()
-                initial_tendon_guess = u_tendon
+                #tendon_solution = force2tendon_solver(x0=initial_tendon_guess, p=p, lbx=lb_tendon, ubx=ub_tendon)
+                #u_tendon = np.array(tendon_solution['x']).flatten()
+                u_tendon = u0  # placeholder if not using QP
+                initial_tendon_guess = u0
                 loop_time_2 = time.time()
 
-                pcc_arm.log_history(u0, q_goal_value[:,0],u_tendon)
+                pcc_arm.log_history(np.zeros(2*pcc_arm.num_segments), q_goal_value[:,0],u_tendon)
                 # apply the first control input to the real system
                 pcc_arm.next_step(u0)
 
@@ -80,22 +81,15 @@ def main():
 
                 # Set the postfix with the calculated times
                 pbar.set_postfix(MPC=f'{mpc_time:.2f}ms', QP=f'{qp_time:.2f}ms', FK=f'{fk_time:.2f}ms', Total=f'{total_time:.2f}ms', refresh=True)
-                min_eigenvalue.append(np.min(np.linalg.eigvals(pcc_arm.M_func(pcc_arm.current_state[:2*pcc_arm.num_segments]))))
 
             except:
                 traceback.print_exc()
                 break
-    print(f"Minimum eigenvalue: {np.min(min_eigenvalue)}")
-    plt.figure()
-    plt.plot(min_eigenvalue)
-    plt.title("Minimum eigenvalue of Mass matrix over time")
-    plt.xlabel("Time step")
-    plt.ylabel("Minimum eigenvalue (should be >0)")
-    plt.show()
-    print("--- %s seconds ---" % (time.time() - start_time))
-    history_plot(pcc_arm,MPC_PARAMETERS['u_bound'],xyz_circular_traj)
 
-def create_force2tendon_function(arm):
+    print("--- %s seconds ---" % (time.time() - start_time))
+    history_plot(pcc_arm,MPC_PARAMETERS['u_bound'],xyz_circular_traj, )
+
+'''def create_force2tendon_function(arm):
     num_segments = arm.num_segments
     J_tendon = ca.SX.zeros((3*num_segments, 2*num_segments))
     u_tendon = ca.SX.sym('u', 3*num_segments)
@@ -115,7 +109,7 @@ def create_force2tendon_function(arm):
     qp   = {'x': u_tendon, 'p': ca.vertcat(q, u_generalized), 'f': objective}
     opts = {'print_time': False, 'printLevel': 'none'}
     solver = ca.qpsol('force2tendon', 'qpoases', qp, opts)
-    return solver
+    return solver'''
 
 if __name__ == "__main__":
     main()
