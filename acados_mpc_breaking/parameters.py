@@ -28,15 +28,15 @@ rho_air = 1.225 #density of air
 rho_liquid = rho_water  # density of the surrounding fluid
 
 
-horizon_time = 2  #seconds
+horizon_time = 3  #seconds
 dt = 0.05  #seconds
 
 num_segments = 2
 
 MPC_PARAMETERS = {
     "N": int(np.ceil(horizon_time/dt)),
-    "Q":  np.diag([1000]*3 + [1]*2*num_segments),
-    "Qf": np.diag([1000]*3 + [1]*2*num_segments),  # stronger terminal weight helps convergence
+    "Q":  np.diag([100]*3 + [1]*2*num_segments),
+    "Qf": np.diag([100]*3 + [1]*2*num_segments),  # stronger terminal weight helps convergence
     "R": 0.0001*np.eye(3*num_segments),
     "u_bound": [0,20],#[0,tension_bound],
 }
