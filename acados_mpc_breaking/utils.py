@@ -381,7 +381,7 @@ def generate_total_trajectory(arm,SIM_PARAMETERS,N,stabilizing_time=0, loop_time
 
     # stabilize first at initial position
     num_stabilize_points = int(stabilizing_time//dt)
-    q_stabilize_traj = np.tile(q0, (num_stabilize_points, 1))
+    
 
     # follow the circular trajectory
     xyz_circular_traj = circle_trajectory(radius=0.6*arm.L_segs[0], height=0.8*arm.L_segs[0], angle=np.deg2rad(75), num_points=int(loop_time//dt))
@@ -395,11 +395,17 @@ def generate_total_trajectory(arm,SIM_PARAMETERS,N,stabilizing_time=0, loop_time
     q_circ_traj = np.hstack((q_traj, q_dot_traj))
 
     q_circ_traj = np.tile(q_circ_traj, (int(number_of_loops), 1)) #more than necessary
+    xyz_circular_traj = np.tile(xyz_circular_traj, (int(number_of_loops), 1))
+
+    # give first point of circle for a moment to stabilize
+    q_stabilize_traj = np.tile(q_circ_traj[0], (num_stabilize_points, 1))
+    xyz_circular_traj = np.tile(xyz_circular_traj[0], (num_stabilize_points, 1))
 
     q_tot_traj = np.vstack((q_stabilize_traj, q_circ_traj))
+    xyz_tot_traj = np.vstack((xyz_circular_traj, xyz_circular_traj))
 
 
-    return q_tot_traj[:int(T//dt+N+2),:], xyz_circular_traj #+1 for the last point, +1 for the diff to be sure
+    return q_tot_traj[:int(T//dt+N+2),:], xyz_tot_traj[:int(T//dt+N+2),:] #+1 for the last point, +1 for the diff to be sure
 
 def anglediff(a, b):
     # CasADi-safe angle difference in [-pi, pi] # used when trying to solve ik smoothness problems
