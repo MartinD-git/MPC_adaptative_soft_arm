@@ -39,7 +39,7 @@ def setup_ocp_solver(pcc_arm, MPC_PARAMETERS, N, Tf):
     # Horizon
     ocp.solver_options.N_horizon = N
     ocp.solver_options.tf = Tf
-    ocp.solver_options.nlp_solver_max_iter = 100
+    ocp.solver_options.nlp_solver_max_iter = 500
 
     # ?? works better with these globalization settings
     '''ocp.solver_options.globalization_fixed_step_length = 0.5 
@@ -70,8 +70,8 @@ def setup_ocp_solver(pcc_arm, MPC_PARAMETERS, N, Tf):
     # bounds
     lbu = u_bound[0] * np.ones(nu)
     ubu = u_bound[1] * np.ones(nu)
-    #lbu[0]=0 #simulate broken tendon
-    #ubu[0]=0
+    #lbu[5]=0 #simulate broken tendon
+    #ubu[5]=0
     ocp.constraints.lbu = lbu
     ocp.constraints.ubu = ubu
 

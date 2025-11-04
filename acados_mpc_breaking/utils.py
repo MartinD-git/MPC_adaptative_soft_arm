@@ -249,29 +249,50 @@ def dynamics2integrator(pcc_arm,f):
 
     return F
 
-def circle_trajectory(radius, height, angle, num_points):
+def circle_trajectory(radius, center, rotation_angles, num_points):
     '''
-    Generate a circular trajectory for the end-effector, rotated around the x axis by 'angle' radians.
+    Generate a circular trajectory for the end-effector of radius float+, center [x,y,z] and rotations angles [roll, pitch, yaw]
     '''
     angles = np.linspace(0, 2*np.pi, num_points,endpoint=False)
     trajectory = np.empty((num_points, 3))
 
-    # Rotation matrix around x axis
-    ca_ = np.cos(angle)
-    sa_ = np.sin(angle)
-    R_x = np.array([
-        [1,    0,     0],
-        [0,  ca_, -sa_],
-        [0,  sa_,  ca_]
-    ])
-
     for i, ang in enumerate(angles):
         x = radius * np.cos(ang)
         y = radius * np.sin(ang)
-        z = height
-        point = np.array([x, y, z])
-        rotated_point = R_x @ point
-        trajectory[i, :] = rotated_point
+        z = 0
+        trajectory[i, :] = np.array([x, y, z])
+
+    # Apply rotation if needed
+    # precalculate cos and sin for each angle
+    cy, sy = np.cos(rotation_angles[2]),   np.sin(rotation_angles[2])     # yaw (psi)
+    cp, sp = np.cos(rotation_angles[1]), np.sin(rotation_angles[1])   # pitch
+    cr, sr = np.cos(rotation_angles[0]),  np.sin(rotation_angles[0])    # roll
+
+    # Rotation matrices for yaw, pitch, roll
+    Rz = np.array([
+        [cy, -sy, 0],
+        [sy,  cy, 0],
+        [ 0,   0, 1]
+    ])
+    Ry = np.array([
+        [cp, 0, sp],
+        [ 0, 1,  0],
+        [-sp, 0, cp]
+    ])
+    Rx = np.array([
+        [1,  0,   0],
+        [0, cr, -sr],
+        [0, sr,  cr]
+    ])
+
+    # Combined rotation matrix
+    R = Rz @ Ry @ Rx
+
+    # Rotate each trajectory point
+    trajectory = trajectory @ R.T
+
+    # Translate to center
+    trajectory += center
 
     return trajectory
 
@@ -380,6 +401,9 @@ def generate_total_trajectory(arm,SIM_PARAMETERS,N,stabilizing_time=0, loop_time
     T = SIM_PARAMETERS['T']
     dt = SIM_PARAMETERS['dt']
     q0 = SIM_PARAMETERS['x0']
+    radius = SIM_PARAMETERS['radius_trajectory']
+    center = SIM_PARAMETERS['center_trajectory']
+    rotation_angles = SIM_PARAMETERS['rotation_angles_trajectory']
 
     if T < stabilizing_time + loop_time:
         raise ValueError("Total sim time must be greater than stabilizing_time + loop_time")
@@ -393,7 +417,7 @@ def generate_total_trajectory(arm,SIM_PARAMETERS,N,stabilizing_time=0, loop_time
     
 
     # follow the circular trajectory
-    xyz_circular_traj = circle_trajectory(radius=0.6*arm.L_segs[0], height=0.8*arm.L_segs[0], angle=np.deg2rad(75), num_points=int(loop_time//dt))
+    xyz_circular_traj = circle_trajectory(radius=radius, center=center, rotation_angles=rotation_angles, num_points=int(loop_time//dt))
     dottet_plotting_traj = xyz_circular_traj.copy()
     q_traj = taskspace_to_jointspace(arm, xyz_circular_traj)
     
