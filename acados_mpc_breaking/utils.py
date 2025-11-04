@@ -394,11 +394,12 @@ def generate_total_trajectory(arm,SIM_PARAMETERS,N,stabilizing_time=0, loop_time
 
     # follow the circular trajectory
     xyz_circular_traj = circle_trajectory(radius=0.6*arm.L_segs[0], height=0.8*arm.L_segs[0], angle=np.deg2rad(75), num_points=int(loop_time//dt))
-
+    dottet_plotting_traj = xyz_circular_traj.copy()
     q_traj = taskspace_to_jointspace(arm, xyz_circular_traj)
     
     idx0 = np.argmin(np.linalg.norm(q_traj - q0[:2*arm.num_segments], axis=1))
     q_traj = np.unwrap(np.roll(q_traj, -idx0, axis=0),axis=0) #start at the closest point to q0
+    xyz_circular_traj = np.unwrap(np.roll(xyz_circular_traj, -idx0, axis=0),axis=0)
 
     q_dot_traj = np.diff(np.vstack((q_traj,q_traj[0,:])),axis=0)/dt
     q_circ_traj = np.hstack((q_traj, q_dot_traj))
@@ -408,13 +409,14 @@ def generate_total_trajectory(arm,SIM_PARAMETERS,N,stabilizing_time=0, loop_time
 
     # give first point of circle for a moment to stabilize
     q_stabilize_traj = np.tile(q_circ_traj[0], (num_stabilize_points, 1))
-    xyz_circular_traj = np.tile(xyz_circular_traj[0], (num_stabilize_points, 1))
+    q_stabilize_traj[:,2*arm.num_segments:] = 0.0 # zero velocities
+    xyz_stabilize_traj = np.tile(xyz_circular_traj[0], (num_stabilize_points, 1))
 
     q_tot_traj = np.vstack((q_stabilize_traj, q_circ_traj))
-    xyz_tot_traj = np.vstack((xyz_circular_traj, xyz_circular_traj))
+    xyz_tot_traj = np.vstack((xyz_stabilize_traj, xyz_circular_traj))
 
 
-    return q_tot_traj[:int(T//dt+N+2),:], xyz_tot_traj[:int(T//dt+N+2),:] #+1 for the last point, +1 for the diff to be sure
+    return q_tot_traj[:int(T//dt+N+2),:], xyz_tot_traj, dottet_plotting_traj #+1 for the last point, +1 for the diff to be sure
 
 def anglediff(a, b):
     # CasADi-safe angle difference in [-pi, pi] # used when trying to solve ik smoothness problems
