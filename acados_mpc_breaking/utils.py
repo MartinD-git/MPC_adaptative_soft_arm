@@ -6,29 +6,6 @@ import casadi as ca
 import numpy as np
 import matplotlib.pyplot as plt
 
-'''def pcc_segment_transform(s_var, phi, theta, L): 
-
-    eps=1e-8
-
-    theta = ca.if_else(ca.fabs(theta)>eps, theta, ca.sign(theta)*eps) #avoid division by 0 by clamping
-
-    #Translation
-    tx = L * ca.cos(phi) * (1 - ca.cos(s_var*theta)) / theta
-    ty = L * ca.sin(phi) * (1 - ca.cos(s_var*theta)) / theta
-    tz = L * ca.sin(s_var*theta) / theta
-
-    t_c = ca.vertcat(tx, ty, tz)
-
-    # Rotation Matrix
-    R_c = ca.vertcat(
-        ca.horzcat(ca.cos(phi)**2 * (ca.cos(s_var*theta) - 1) + 1,    ca.sin(phi)*ca.cos(phi)*(ca.cos(s_var*theta) - 1),                ca.cos(phi)*ca.sin(s_var*theta)),
-        ca.horzcat(ca.sin(phi)*ca.cos(phi)*(ca.cos(s_var*theta) - 1), ca.cos(phi)**2 * (1 - ca.cos(s_var*theta)) + ca.cos(s_var*theta), ca.sin(phi)*ca.sin(s_var*theta)),
-        ca.horzcat(-ca.cos(phi)*ca.sin(s_var*theta),                 -ca.sin(phi)*ca.sin(s_var*theta),                                  ca.cos(s_var*theta))
-    )
-
-    T = ca.vertcat(ca.horzcat(R_c, t_c), ca.horzcat(0,0,0,1))
-
-    return T'''
 def sinc_cosc(u, eps=1e-4):
     # Precompute powers
     u2 = u*u
@@ -337,64 +314,6 @@ def taskspace_to_jointspace(arm, traj_xyz, w_reg=1e-4):
     #debug_trajectory_generation_plot(arm, traj_xyz, Q)
 
     return Q
-
-'''def taskspace_to_jointspace(arm, traj_xyz, w_smooth=1e-6):
-    """
-    Convert a sequence of Cartesian points (N x 3) into joint vectors (N x 2*num_segments).
-    """
-    N_seg = arm.num_segments
-    dof = 2 * N_seg
-    tip_index = N_seg - 1
-
-    traj_xyz = np.asarray(traj_xyz)
-    num_points = traj_xyz.shape[0]
-
-    q0 = np.array([np.deg2rad(0), np.deg2rad(10), np.deg2rad(10), np.deg2rad(10)])
-    delta = np.deg2rad(20) * np.ones(dof)
-
-    q = ca.SX.sym('q', num_points, dof)
-
-    cost = 0
-    constr_vars, constr_lbx, constr_ubx = [], [], []
-
-    for i in range(num_points):
-        i_prev = (i - 1) % num_points
-
-        # FK at step i
-        tips, _ = pcc_forward_kinematics(arm.s, q[i, :], arm.L_segs, num_segments=N_seg)
-        p_tip = ca.substitute(tips[tip_index], arm.s, 1.0)
-
-        # tracking + smoothness
-        dq = anglediff(q[i, :], q[i_prev, :])
-        cost += ca.sumsqr(p_tip - traj_xyz[i, :]) + w_smooth * ca.sumsqr(dq)
-
-        constr_vars.append(ca.transpose(dq))
-        constr_lbx.append(-delta)
-        constr_ubx.append(+delta)
-
-    g   = ca.vertcat(*constr_vars)
-    glb = np.concatenate(constr_lbx)
-    gub = np.concatenate(constr_ubx)
-
-    nlp  = {'x': ca.vec(q), 'f': cost, 'g': g}
-    opts = {'ipopt.print_level': 0, 'print_time': 0}
-    solver = ca.nlpsol('ik', 'ipopt', nlp, opts)
-
-    X0_mat = ca.repmat(ca.DM(q0).T, num_points, 1)
-    x0     = ca.vec(X0_mat)
-
-    nx  = num_points * dof
-    lbx = -np.inf * np.ones(nx)
-    ubx = +np.inf * np.ones(nx)
-
-    sol = solver(x0=x0, lbx=lbx, ubx=ubx, lbg=glb, ubg=gub)
-
-    Qsol_mat = ca.reshape(sol['x'], num_points, dof) 
-    Qsol = np.array(Qsol_mat)
-
-    debug_trajectory_generation_plot(arm, traj_xyz, Qsol)
-
-    return Qsol'''
 
 def generate_total_trajectory(arm,SIM_PARAMETERS,N,stabilizing_time=0, loop_time=6.0):
 
