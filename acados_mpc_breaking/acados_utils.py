@@ -41,7 +41,7 @@ def setup_ocp_solver(pcc_arm, MPC_PARAMETERS, N, Tf):
     ocp.solver_options.tf = Tf
     ocp.solver_options.nlp_solver_max_iter = 500
 
-    # ?? works better with these globalization settings
+    # ?? works better with these globalization settings if its breaking
     '''ocp.solver_options.globalization_fixed_step_length = 0.5 
     ocp.solver_options.globalization_full_step_dual = 1        # keep duals stable when primals take smaller steps'''
 
