@@ -28,16 +28,16 @@ rho_air = 1.225 #density of air
 rho_liquid = rho_water  # density of the surrounding fluid
 
 
-horizon_time = 3  #seconds
-dt = 0.05  #seconds
+horizon_time = 2  #seconds
+dt = 0.1  #seconds
 
 num_segments = 2
 
 MPC_PARAMETERS = {
     "N": int(np.ceil(horizon_time/dt)),
-    "Q":  np.diag([100]*3 + [1]*2*num_segments),
-    "Qf": np.diag([100]*3 + [1]*2*num_segments),  # stronger terminal weight helps convergence
-    "R": 0.0001*np.eye(3*num_segments),
+    "Q":  np.diag([1e3]*3 + [1]*2*num_segments),
+    "Qf": np.diag([1e3]*3 + [1]*2*num_segments),  # stronger terminal weight helps convergence
+    "R": 1e-4*np.eye(3*num_segments),
     "u_bound": [0,20],#[0,tension_bound],
 }
 
@@ -45,10 +45,13 @@ SIM_PARAMETERS = {
     "dt": dt,
     "T": 20,
     "x0": np.array([ # phi, theta
-        np.deg2rad(-45), np.deg2rad(45), np.deg2rad(0), np.deg2rad(0), # phi is angle at base, theta is curvature
+        np.deg2rad(0), np.deg2rad(30), np.deg2rad(0), np.deg2rad(0), # phi is angle at base, theta is curvature
         0, 0, 0, 0
     ]),
     "T_loop": 10,  # seconds
+    "radius_trajectory": 0.4*L,
+    "center_trajectory": np.array([0.8, 0, 1.3])*L,
+    "rotation_angles_trajectory": np.array([np.deg2rad(0), np.deg2rad(60), np.deg2rad(0)]),
 }
 
 ARM_PARAMETERS = {

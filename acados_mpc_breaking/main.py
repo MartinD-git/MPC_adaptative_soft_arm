@@ -30,7 +30,7 @@ def main():
 
     #generate circular trajectory (N,4*num_segments)
     print("Generating trajectory")
-    q_tot_traj, xyz_circular_traj = generate_total_trajectory(pcc_arm,SIM_PARAMETERS,N,stabilizing_time=0, loop_time=SIM_PARAMETERS['T_loop'])
+    q_tot_traj, xyz_circular_traj, dottet_plotting_traj = generate_total_trajectory(pcc_arm,SIM_PARAMETERS,N,stabilizing_time=0, loop_time=SIM_PARAMETERS['T_loop'])
     print("Trajectory is generated")
     
     # Create Acados OCP solver
@@ -52,6 +52,7 @@ def main():
 
                 #q_goal_value = q_tot_traj[t:t+N+1,:].T
                 q_goal_value = np.vstack((xyz_circular_traj[t:t+N+1,:].T,q_tot_traj[t:t+N+1,2*pcc_arm.num_segments:].T))  # shifted by one time step
+                #q_goal_value = np.vstack((xyz_circular_traj[t:t+N+1,:].T,np.zeros((2*pcc_arm.num_segments,N+1))))  # zero velocities
 
                 u0 = mpc_step_acados(ocp_solver, pcc_arm.current_state, q_goal_value, N)
                 
@@ -83,11 +84,15 @@ def main():
                 pbar.set_postfix(MPC=f'{mpc_time:.2f}ms', QP=f'{qp_time:.2f}ms', FK=f'{fk_time:.2f}ms', Total=f'{total_time:.2f}ms', refresh=True)
 
             except:
+                print("status:", ocp_solver.get_status())            # expect 2 in your case
+                print("alpha:", ocp_solver.get_stats('alpha'))
+                print("qp_iter:", ocp_solver.get_stats('qp_iter'))
+                print("residuals:", ocp_solver.get_residuals())  
                 traceback.print_exc()
                 break
 
     print("--- %s seconds ---" % (time.time() - start_time))
-    history_plot(pcc_arm,MPC_PARAMETERS['u_bound'],xyz_circular_traj, )
+    history_plot(pcc_arm,MPC_PARAMETERS['u_bound'],dottet_plotting_traj)
 
 '''def create_force2tendon_function(arm):
     num_segments = arm.num_segments

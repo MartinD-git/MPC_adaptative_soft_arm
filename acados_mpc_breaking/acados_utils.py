@@ -40,7 +40,16 @@ def setup_ocp_solver(pcc_arm, MPC_PARAMETERS, N, Tf):
     ocp.solver_options.N_horizon = N
     ocp.solver_options.tf = Tf
     ocp.solver_options.nlp_solver_max_iter = 500
-    ocp.solver_options.globalization  = "MERIT_BACKTRACKING"  # safer globalization
+
+    # ?? works better with these globalization settings
+    '''ocp.solver_options.globalization_fixed_step_length = 0.5 
+    ocp.solver_options.globalization_full_step_dual = 1        # keep duals stable when primals take smaller steps'''
+
+    # ease the NLP stopping a bit around where you plateau
+    ocp.solver_options.nlp_solver_tol_stat  = 1e-4
+    ocp.solver_options.nlp_solver_tol_eq    = 1e-8
+    ocp.solver_options.nlp_solver_tol_ineq  = 1e-8
+    ocp.solver_options.nlp_solver_tol_comp  = 1e-7
 
     # Cost as NONLINEAR_LS on y = [x; u]
     ocp.cost.cost_type = 'NONLINEAR_LS'
@@ -61,8 +70,8 @@ def setup_ocp_solver(pcc_arm, MPC_PARAMETERS, N, Tf):
     # bounds
     lbu = u_bound[0] * np.ones(nu)
     ubu = u_bound[1] * np.ones(nu)
-    #lbu[0]=0 #simulate broken tendon
-    #ubu[0]=0
+    #lbu[5]=0 #simulate broken tendon
+    #ubu[5]=0
     ocp.constraints.lbu = lbu
     ocp.constraints.ubu = ubu
 
