@@ -29,8 +29,8 @@ def setup_ocp_solver(pcc_arm, MPC_PARAMETERS, N, Tf):
 
     nx = model.x.size()[0]
     nu = model.u.size()[0]
-    ny = 4*pcc_arm.num_segments + nu
-    ny_e = 4*pcc_arm.num_segments
+    ny = nx + nu
+    ny_e = nx
     u_bound = MPC_PARAMETERS['u_bound']
     Q = MPC_PARAMETERS['Q']
     R = MPC_PARAMETERS['R']
@@ -59,8 +59,8 @@ def setup_ocp_solver(pcc_arm, MPC_PARAMETERS, N, Tf):
     ocp.model.cost_y_expr_e = model.x
 
     W = np.block([
-        [Q,                np.zeros((4*pcc_arm.num_segments, nu))],
-        [np.zeros((nu, 4*pcc_arm.num_segments)),      R        ],
+        [Q,                np.zeros((nx, nu))],
+        [np.zeros((nu, nx)),      R        ],
     ])
     ocp.cost.W = W
     ocp.cost.W_e = Qf

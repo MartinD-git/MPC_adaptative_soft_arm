@@ -12,6 +12,7 @@ r_i     = r_o - t_wall
 r_i = 0
 r_d = 0.036  # radius at which tendons are located
 L = 3*0.105 #length of each segment
+
 A= np.pi*(r_o**2 - r_i**2)  # area
 I = np.pi*(r_o**4 - r_i**4)/4 #second moment of area
 m = rho * A * L #mass of each segment
@@ -26,16 +27,16 @@ rho_air = 1.225 #density of air
 rho_liquid = rho_air  # density of the surrounding fluid
 
 
-horizon_time = 2  #seconds
-dt = 0.1  #seconds
+horizon_time = 3  #seconds
+dt = 0.05  #seconds
 
 num_segments = 2
 
 MPC_PARAMETERS = {
     "N": int(np.ceil(horizon_time/dt)),
-    "Q":  np.diag([10]*2*num_segments + [1]*2*num_segments),
-    "Qf": np.diag([10]*2*num_segments + [1]*2*num_segments),  # stronger terminal weight helps convergence
-    "R": 1e-3*np.eye(3*num_segments),
+    "Q":  np.diag([5]*2*num_segments + [1]*2*num_segments),
+    "Qf": np.diag([5]*2*num_segments + [1]*2*num_segments),  # stronger terminal weight helps convergence
+    "R": 0.001*np.eye(3*num_segments),
     "u_bound": [0,20],#[0,tension_bound],
 }
 
