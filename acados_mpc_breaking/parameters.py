@@ -25,7 +25,7 @@ u_bound = tension_bound*r_d
 rho_water = 1000 #density of water
 rho_air = 1.225 #density of air
 
-rho_liquid = rho_water  # density of the surrounding fluid
+rho_liquid = rho_air  # density of the surrounding fluid
 
 
 horizon_time = 2  #seconds

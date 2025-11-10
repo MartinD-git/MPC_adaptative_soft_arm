@@ -112,7 +112,7 @@ def shape_function(q, tips,s):
     return ca.Function('arm_shape_func', [q], [P1, P2])
 
 
-def pcc_dynamics(arm,q, q_dot, tips, jacobians,sim=False):
+def pcc_dynamics(arm,q, q_dot, tips, jacobians,water=False):
 
     m = arm.rho * np.pi*(arm.r_o**2 - arm.r_i**2) * arm.L_segs[0] # mass of each segment
 
@@ -127,24 +127,24 @@ def pcc_dynamics(arm,q, q_dot, tips, jacobians,sim=False):
 
     J = ca.vertcat(*jacobians)
 
-    if not sim:
-        rho_fluid = arm.rho_air
-    else:
-        rho_fluid = arm.rho_liquid
-
-    m_buoy = rho_fluid * np.pi*(arm.r_o**2 - arm.r_i**2) * arm.L_segs[0] #buoyancy mass of each segment
-    m_displaced = rho_fluid * np.pi*arm.r_o**2 * arm.L_segs[0] #displaced mass of each segment
+    D_fluid = 0
+    if water:
+        rho_fluid = arm.rho_liquid   
+        m_buoy = rho_fluid * np.pi*(arm.r_o**2 - arm.r_i**2) * arm.L_segs[0] #buoyancy mass of each segment
+        m_displaced = rho_fluid * np.pi*arm.r_o**2 * arm.L_segs[0] #displaced mass of each segment
+        
+        for i, Ji in enumerate(jacobians):
+            v_i = Ji @ q_dot
+            vmag = ca.norm_2(v_i)+ 1e-8 # + 1e-6 to be smooth
+            Aproj = (2*arm.r_o)*arm.L_segs[i] # projected area per segment
+            D_fluid += 0.5 * rho_fluid * arm.C_d * Aproj * vmag * (Ji.T @ Ji)
+            
+    
+    D_integrand = (jacobians[0].T @ jacobians[0]) * d_eq[0]+(jacobians[1].T @ jacobians[1]) * d_eq[1] + D_fluid
 
     G_integrand = (m_buoy-m) * sum(ca.dot(g_vec, tip) for tip in tips)
     M_integrand = (m+m_displaced) * (J.T @ J)
-    D_fluid = 0
-    for i, Ji in enumerate(jacobians):
-        v_i = Ji @ q_dot
-        vmag = ca.norm_2(v_i)+ 1e-8 # + 1e-6 to be smooth
-        Aproj = (2*arm.r_o)*arm.L_segs[i] # projected area per segment
-        D_fluid += 0.5 * rho_fluid * arm.C_d * Aproj * vmag * (Ji.T @ Ji)
-        
-    D_integrand = (jacobians[0].T @ jacobians[0]) * d_eq[0]+(jacobians[1].T @ jacobians[1]) * d_eq[1] + D_fluid
+
 
     M = gauss_legendre(M, M_integrand, s)
 
