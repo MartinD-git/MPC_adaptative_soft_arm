@@ -59,7 +59,7 @@ class PCCSoftArm:
     
     def log_history(self,u,q_d,u_tendon):
         self.history[:, self.history_index] = self.true_current_state
-        #self.history_d[:, self.history_index] = q_d
+        self.history_d[:, self.history_index] = q_d
         self.history_u[:, self.history_index] = u
         self.history_u_tendon[:, self.history_index] = u_tendon
         self.history_index += 1

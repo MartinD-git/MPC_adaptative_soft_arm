@@ -55,8 +55,8 @@ def setup_ocp_solver(pcc_arm, MPC_PARAMETERS, N, Tf):
     ocp.cost.cost_type = 'NONLINEAR_LS'
     ocp.cost.cost_type_e = 'NONLINEAR_LS'
 
-    ocp.model.cost_y_expr = ca.vertcat(pcc_arm.end_effector(model.x[:2*pcc_arm.num_segments]),model.x[2*pcc_arm.num_segments:], model.u)
-    ocp.model.cost_y_expr_e = ca.vertcat(pcc_arm.end_effector(model.x[:2*pcc_arm.num_segments]),model.x[2*pcc_arm.num_segments:])
+    ocp.model.cost_y_expr = ca.vertcat(model.x, model.u)
+    ocp.model.cost_y_expr_e = model.x
 
     W = np.block([
         [Q,                np.zeros((4*pcc_arm.num_segments, nu))],
