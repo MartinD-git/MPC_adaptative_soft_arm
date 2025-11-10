@@ -55,10 +55,10 @@ def main():
                 loop_time_0 = time.time()
 
                 #q_goal_value = q_tot_traj[t:t+N+1,:].T
-                q_goal_value = np.vstack((xyz_circular_traj[t:t+N+1,:].T,q_tot_traj[t:t+N+1,2*pcc_arm.num_segments:].T))  # shifted by one time step
-                #q_goal_value = np.vstack((xyz_circular_traj[t:t+N+1,:].T,np.zeros((2*pcc_arm.num_segments,N+1))))  # zero velocities
+                #q_goal_value = np.vstack((xyz_circular_traj[t:t+N+1,:].T,q_tot_traj[t:t+N+1,2*pcc_arm.num_segments:].T))  # shifted by one time step
+                q_goal_value = np.vstack((xyz_circular_traj[t:t+N+1,:].T,np.zeros((2*pcc_arm.num_segments,N+1))))  # zero velocities
 
-                u0 = mpc_step_acados(ocp_solver, pcc_arm.current_state, q_goal_value, N)+ np.ones_like(u0)*
+                u0 = mpc_step_acados(ocp_solver, pcc_arm.current_state, q_goal_value, N)#+ np.ones_like(u0)*
 
                 loop_time_1 = time.time()
                 pcc_arm.log_history(np.zeros(2*pcc_arm.num_segments), q_goal_value[:,0],u0)

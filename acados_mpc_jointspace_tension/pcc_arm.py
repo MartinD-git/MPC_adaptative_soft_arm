@@ -18,7 +18,6 @@ class PCCSoftArm:
         self.sigma_k = arm_param_dict['sigma_k']
         self.rho_air = 1.225 # kg/m^3
         self.C_d = 1.17  # drag coefficient, approx for cylinder
-        self.max_tension = arm_param_dict['maximum_tension']  # max tension for each tendon
         self.dt = dt
         self.num_segments = arm_param_dict['num_segments']
         self.current_state = None

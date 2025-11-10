@@ -128,6 +128,8 @@ def pcc_dynamics(arm,q, q_dot, tips, jacobians,water=False):
     J = ca.vertcat(*jacobians)
 
     D_fluid = 0
+    m_buoy = 0
+    m_displaced = 0
     if water:
         rho_fluid = arm.rho_liquid   
         m_buoy = rho_fluid * np.pi*(arm.r_o**2 - arm.r_i**2) * arm.L_segs[0] #buoyancy mass of each segment
