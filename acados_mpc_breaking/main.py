@@ -8,6 +8,14 @@ b = 0.14153846153
 
 I = a*tau + b = a*r_d*tension + b
 
+control with position first and print the actual current to see if it matches simulation
+id 5 is zero
+
+radisu pulley = 6mm
+measure length should be 3*105
+d = 40 mm
+tendon radius is 36mm
+
 '''
 
 
