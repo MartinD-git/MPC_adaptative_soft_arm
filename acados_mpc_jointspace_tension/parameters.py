@@ -2,16 +2,15 @@ import numpy as np
 
 # we consider a segment as a cylinder:
 #material: TPU
-E= 1e6 #Young modulus23e6
+E= 23e6 #Young modulus23e6
 rho=1220 #density
 
 #arm
 r_o     = 0.04 # outer radius [m]
 t_wall  = 0.004 # wall thickness [m]
 r_i     = r_o - t_wall
-r_i = 0
 r_d = 0.036  # radius at which tendons are located
-L = 3*0.105 #length of each segment
+L = 0.315 #length of each segment
 
 A= np.pi*(r_o**2 - r_i**2)  # area
 I = np.pi*(r_o**4 - r_i**4)/4 #second moment of area
@@ -37,7 +36,7 @@ MPC_PARAMETERS = {
     "Q":  np.diag([5]*2*num_segments + [1]*2*num_segments),
     "Qf": np.diag([5]*2*num_segments + [1]*2*num_segments),  # stronger terminal weight helps convergence
     "R": 0.001*np.eye(3*num_segments),
-    "u_bound": [0,20],#[0,tension_bound],
+    "u_bound": [0,40],#[0,tension_bound],
 }
 
 SIM_PARAMETERS = {

@@ -1,8 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
-import matplotlib as mpl
-import os
 
 out_dir = "csv_and_plots/"
 
@@ -57,7 +55,7 @@ def history_plot(pcc_arm,u_bound,xyz_traj=None):
         axs[i].set_title(f'Segment {i+1}')
         axs[i].set_xlabel('Time [s]')
         axs[i].set_ylabel('N')
-        axs[i].set_ylim(0, pcc_arm.max_tension*1.1)
+        axs[i].set_ylim(0, u_bound[1]*1.1)
         axs[i].legend()
         
     plt.tight_layout()
