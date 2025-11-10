@@ -197,8 +197,8 @@ def pcc_dynamics(arm,q, q_dot, tips, jacobians,water=False):
         for k in range(3): #number of tendons
             phi =q0[2*i]
             theta = q0[1+2*i]
-            J_tendon[k+3*i,2*i] = -theta*arm.r_d*ca.sin(arm.sigma_k[k]-phi)
-            J_tendon[k+3*i,2*i+1] = -arm.r_d*ca.cos(arm.sigma_k[k]-phi)
+            J_tendon[k+3*i,2*i] = -theta*arm.r_d*ca.sin(arm.sigma_k[k+3*i]-phi)
+            J_tendon[k+3*i,2*i+1] = -arm.r_d*ca.cos(arm.sigma_k[k+3*i]-phi)
 
     #q_ddot = ca.solve(M_term , u - C_term - G_term - D_term - K_term) #Ax=b
 

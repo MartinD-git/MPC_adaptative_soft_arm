@@ -26,7 +26,7 @@ rho_air = 1.225 #density of air
 rho_liquid = rho_air  # density of the surrounding fluid
 
 
-horizon_time = 3  #seconds
+horizon_time = 2  #seconds
 dt = 0.05  #seconds
 
 num_segments = 2
@@ -36,14 +36,14 @@ MPC_PARAMETERS = {
     "Q":  np.diag([1e3]*3 + [1]*2*num_segments),
     "Qf": np.diag([1e3]*3 + [1]*2*num_segments),  # stronger terminal weight helps convergence
     "R": 1e-4*np.eye(3*num_segments),
-    "u_bound": [0,40],#[0,tension_bound],
+    "u_bound": [2,30],#[0,tension_bound],
 }
 
 SIM_PARAMETERS = {
     "dt": dt,
     "T": 20,
     "x0": np.array([ # phi, theta
-        np.deg2rad(0), np.deg2rad(30), np.deg2rad(0), np.deg2rad(0), # phi is angle at base, theta is curvature
+        np.deg2rad(0), np.deg2rad(1e-6), np.deg2rad(0), np.deg2rad(0), # phi is angle at base, theta is curvature
         0, 0, 0, 0
     ]),
     "T_loop": 10,  # seconds
@@ -56,7 +56,7 @@ ARM_PARAMETERS = {
     "L_segs": [L, L],
     "r_o": r_o,
     "r_i": r_i,
-    "sigma_k": [0, 2*np.pi/3,2*2*np.pi/3],
+    "sigma_k": [0, 2*np.pi/3,2*2*np.pi/3, np.pi/3, np.pi,5*np.pi/3],  # tendon routing angles
     "rho_arm": rho,
     "d_eq": [d, d],
     "K": np.diag([k_phi, k_theta, k_phi, k_theta]),
