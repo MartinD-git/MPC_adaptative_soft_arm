@@ -6,29 +6,6 @@ import casadi as ca
 import numpy as np
 import matplotlib.pyplot as plt
 
-'''def pcc_segment_transform(s_var, phi, theta, L): 
-
-    eps=1e-8
-
-    theta = ca.if_else(ca.fabs(theta)>eps, theta, ca.sign(theta)*eps) #avoid division by 0 by clamping
-
-    #Translation
-    tx = L * ca.cos(phi) * (1 - ca.cos(s_var*theta)) / theta
-    ty = L * ca.sin(phi) * (1 - ca.cos(s_var*theta)) / theta
-    tz = L * ca.sin(s_var*theta) / theta
-
-    t_c = ca.vertcat(tx, ty, tz)
-
-    # Rotation Matrix
-    R_c = ca.vertcat(
-        ca.horzcat(ca.cos(phi)**2 * (ca.cos(s_var*theta) - 1) + 1,    ca.sin(phi)*ca.cos(phi)*(ca.cos(s_var*theta) - 1),                ca.cos(phi)*ca.sin(s_var*theta)),
-        ca.horzcat(ca.sin(phi)*ca.cos(phi)*(ca.cos(s_var*theta) - 1), ca.cos(phi)**2 * (1 - ca.cos(s_var*theta)) + ca.cos(s_var*theta), ca.sin(phi)*ca.sin(s_var*theta)),
-        ca.horzcat(-ca.cos(phi)*ca.sin(s_var*theta),                 -ca.sin(phi)*ca.sin(s_var*theta),                                  ca.cos(s_var*theta))
-    )
-
-    T = ca.vertcat(ca.horzcat(R_c, t_c), ca.horzcat(0,0,0,1))
-
-    return T'''
 def sinc_cosc(u, eps=1e-4):
     # Precompute powers
     u2 = u*u
@@ -72,7 +49,7 @@ def pcc_segment_transform(s_var, phi, theta, L, eps=1e-4):
     T = ca.vertcat(ca.horzcat(R, t), ca.horzcat(0,0,0,1))
     return T
 
-def pcc_forward_kinematics(s, q, L_segs):
+def pcc_forward_kinematics(s, q, L_segs,num_segments=3):
     '''
     Compute the forward kinematics of the 3-segment PCC robot arm.
     '''
@@ -83,7 +60,6 @@ def pcc_forward_kinematics(s, q, L_segs):
 
     # Chain the transformations
     T_tip1 = pcc_segment_transform(1, phi1, th1, L1)
-    T_tip2 = pcc_segment_transform(1, phi2, th2, L2)
 
     T_global1 = pcc_segment_transform(s, phi1, th1, L1)
     T_global2 = T_tip1 @ pcc_segment_transform(s, phi2, th2, L2)
@@ -136,9 +112,10 @@ def shape_function(q, tips,s):
     return ca.Function('arm_shape_func', [q], [P1, P2])
 
 
-def pcc_dynamics(arm,q, q_dot, tips, jacobians, rho_fluid):
+def pcc_dynamics(arm,q, q_dot, tips, jacobians,water=False):
 
     m = arm.rho * np.pi*(arm.r_o**2 - arm.r_i**2) * arm.L_segs[0] # mass of each segment
+
 
     num_segments = arm.num_segments
     s = arm.s
@@ -147,26 +124,33 @@ def pcc_dynamics(arm,q, q_dot, tips, jacobians, rho_fluid):
     G_pot = ca.SX(0)
     g_vec = ca.vertcat(0.0, 0.0, -9.81)
     d_eq = arm.d_eq
+
     p_adaptative = ca.SX.sym('p_adaptative', arm.num_adaptive_params, 1)
-    #m += p_adaptative[0]  # mass adaptative
     d_eq += p_adaptative[0:2]  # damping adaptative
     K = arm.K + ca.diag(p_adaptative[2:])  # stiffness adaptative
 
     J = ca.vertcat(*jacobians)
 
-    m_buoy = rho_fluid * np.pi*(arm.r_o**2 - arm.r_i**2) * arm.L_segs[0] #buoyancy mass of each segment
-    m_displaced = rho_fluid * np.pi*arm.r_o**2 * arm.L_segs[0] #displaced mass of each segment
+    D_fluid = 0
+    m_buoy = 0
+    m_displaced = 0
+    if water:
+        rho_fluid = arm.rho_liquid   
+        m_buoy = rho_fluid * np.pi*(arm.r_o**2 - arm.r_i**2) * arm.L_segs[0] #buoyancy mass of each segment
+        m_displaced = rho_fluid * np.pi*arm.r_o**2 * arm.L_segs[0] #displaced mass of each segment
+        
+        for i, Ji in enumerate(jacobians):
+            v_i = Ji @ q_dot
+            vmag = ca.norm_2(v_i)+ 1e-8 # + 1e-6 to be smooth
+            Aproj = (2*arm.r_o)*arm.L_segs[i] # projected area per segment
+            D_fluid += 0.5 * rho_fluid * arm.C_d * Aproj * vmag * (Ji.T @ Ji)
+            
+    
+    D_integrand = (jacobians[0].T @ jacobians[0]) * d_eq[0]+(jacobians[1].T @ jacobians[1]) * d_eq[1] + D_fluid
 
     G_integrand = (m_buoy-m) * sum(ca.dot(g_vec, tip) for tip in tips)
     M_integrand = (m+m_displaced) * (J.T @ J)
-    D_fluid = 0
-    for i, Ji in enumerate(jacobians):
-        v_i = Ji @ q_dot
-        vmag = ca.norm_2(v_i)+ 1e-8 # + 1e-6 to be smooth
-        Aproj = (2*arm.r_o)*arm.L_segs[i] # projected area per segment
-        D_fluid += 0.5 * rho_fluid * arm.C_d * Aproj * vmag * (Ji.T @ Ji)
-        
-    D_integrand = (jacobians[0].T @ jacobians[0]) * d_eq[0]+(jacobians[1].T @ jacobians[1]) * d_eq[1] + D_fluid
+
 
     M = gauss_legendre(M, M_integrand, s)
 
@@ -177,7 +161,8 @@ def pcc_dynamics(arm,q, q_dot, tips, jacobians, rho_fluid):
 
     M_func = ca.Function('M_func', [q], [M])
     G_func = ca.Function('G_func', [q], [G])
-    D_func = ca.Function('D_func', [q, q_dot, p_adaptative[0:2]], [D])
+    D_func = ca.Function('D_func', [q,q_dot, p_adaptative[0:2]], [D])
+    arm.M_func = M_func
 
     # Coriolis C
     M_q = M_func(q)
@@ -192,32 +177,48 @@ def pcc_dynamics(arm,q, q_dot, tips, jacobians, rho_fluid):
     x = ca.SX.sym('x', 4*num_segments)
     u = ca.SX.sym('u', 2*num_segments)
     q0 = ca.SX.sym('q0', 4*num_segments)
-    
 
     q_from_x = x[:2*num_segments]
     q_dot_from_x = x[2*num_segments:]
 
     # Calculate q_ddot
-    M_term= M_func(q0[:2*num_segments]) +1e-6* ca.DM.eye(2*num_segments)
-    C_term= C_vec_func(q0[:2*num_segments], q0[2*num_segments:0])
+    '''M_term= M_func(q_from_x)+1e-6* ca.DM.eye(2*num_segments)
+    C_term= C_vec_func(q_from_x, q_dot_from_x)
+    G_term= G_func(q_from_x)
+    D_term= D_func(q_from_x, q_dot_from_x) @ q_dot_from_x
+    K_term= K @ q_from_x'''
+    M_term= M_func(q0[:2*num_segments])+1e-6* ca.DM.eye(2*num_segments)
+    C_term= C_vec_func(q0[:2*num_segments], q0[2*num_segments:])
     G_term= G_func(q0[:2*num_segments])
     D_term= D_func(q0[:2*num_segments], q0[2*num_segments:], p_adaptative[0:2]) @ q_dot_from_x
     K_term= K @ q_from_x
+  
+    J_tendon = ca.SX.zeros((3*num_segments, 2*num_segments))
+    u_tendon = ca.SX.sym('u', 3*num_segments)
+
+    for i in range(num_segments):
+        for k in range(3): #number of tendons
+            phi =q0[2*i]
+            theta = q0[1+2*i]
+            J_tendon[k+3*i,2*i] = -theta*arm.r_d*ca.sin(arm.sigma_k[k+3*i]-phi)
+            J_tendon[k+3*i,2*i+1] = -arm.r_d*ca.cos(arm.sigma_k[k+3*i]-phi)
+
+    #q_ddot = ca.solve(M_term , u - C_term - G_term - D_term - K_term) #Ax=b
 
     #added for speed
-    rhs = u  - C_term - G_term - D_term - K_term
+    rhs = J_tendon.T @ u_tendon - C_term - G_term - D_term - K_term
 
     # Robust SPD solve via Cholesky
-    q_ddot = ca.solve(M_term , rhs) #Ax=b
+    q_ddot = ca.solve(M_term , rhs)
     x_dot = ca.vertcat(q_dot_from_x, q_ddot)
     p_global = ca.vertcat(q0, p_adaptative)
 
-    return ca.Function('pcc_f', [x, u, p_global], [x_dot])
+    return ca.Function('pcc_f', [x, u_tendon, p_global], [x_dot])
 
 def dynamics2integrator(pcc_arm,f):
     x0 = ca.MX.sym('x0', 4*pcc_arm.num_segments)
-    u  = ca.MX.sym('u', 2*pcc_arm.num_segments) 
-    q0 = ca.MX.sym('q0', 4*pcc_arm.num_segments)
+    u  = ca.MX.sym('u', 3*pcc_arm.num_segments)
+    q0 = ca.MX.sym('q0', 4*pcc_arm.num_segments) 
     p_adaptative = ca.MX.sym('p_adaptative', pcc_arm.num_adaptive_params)
     p_global = ca.vertcat(q0, p_adaptative)
 
@@ -233,29 +234,50 @@ def dynamics2integrator(pcc_arm,f):
 
     return F
 
-def circle_trajectory(radius, height, angle, num_points):
+def circle_trajectory(radius, center, rotation_angles, num_points):
     '''
-    Generate a circular trajectory for the end-effector, rotated around the x axis by 'angle' radians.
+    Generate a circular trajectory for the end-effector of radius float+, center [x,y,z] and rotations angles [roll, pitch, yaw]
     '''
     angles = np.linspace(0, 2*np.pi, num_points,endpoint=False)
     trajectory = np.empty((num_points, 3))
 
-    # Rotation matrix around x axis
-    ca_ = np.cos(angle)
-    sa_ = np.sin(angle)
-    R_x = np.array([
-        [1,    0,     0],
-        [0,  ca_, -sa_],
-        [0,  sa_,  ca_]
-    ])
-
     for i, ang in enumerate(angles):
         x = radius * np.cos(ang)
         y = radius * np.sin(ang)
-        z = height
-        point = np.array([x, y, z])
-        rotated_point = R_x @ point
-        trajectory[i, :] = rotated_point
+        z = 0
+        trajectory[i, :] = np.array([x, y, z])
+
+    # Apply rotation if needed
+    # precalculate cos and sin for each angle
+    cy, sy = np.cos(rotation_angles[2]),   np.sin(rotation_angles[2])     # yaw (psi)
+    cp, sp = np.cos(rotation_angles[1]), np.sin(rotation_angles[1])   # pitch
+    cr, sr = np.cos(rotation_angles[0]),  np.sin(rotation_angles[0])    # roll
+
+    # Rotation matrices for yaw, pitch, roll
+    Rz = np.array([
+        [cy, -sy, 0],
+        [sy,  cy, 0],
+        [ 0,   0, 1]
+    ])
+    Ry = np.array([
+        [cp, 0, sp],
+        [ 0, 1,  0],
+        [-sp, 0, cp]
+    ])
+    Rx = np.array([
+        [1,  0,   0],
+        [0, cr, -sr],
+        [0, sr,  cr]
+    ])
+
+    # Combined rotation matrix
+    R = Rz @ Ry @ Rx
+
+    # Rotate each trajectory point
+    trajectory = trajectory @ R.T
+
+    # Translate to center
+    trajectory += center
 
     return trajectory
 
@@ -273,7 +295,7 @@ def taskspace_to_jointspace(arm, traj_xyz, w_reg=1e-4):
     p_des = ca.SX.sym('p', 3)
 
     # Build tip position at s=1 using your FK
-    tips, _ = pcc_forward_kinematics(arm.s, q, arm.L_segs)
+    tips, _ = pcc_forward_kinematics(arm.s, q, arm.L_segs, num_segments=Nseg)
     p_tip = ca.substitute(tips[tip_index], arm.s, 1.0)  
 
     # Small least-squares
@@ -301,69 +323,14 @@ def taskspace_to_jointspace(arm, traj_xyz, w_reg=1e-4):
 
     return Q
 
-'''def taskspace_to_jointspace(arm, traj_xyz, w_smooth=1e-6):
-    """
-    Convert a sequence of Cartesian points (N x 3) into joint vectors (N x 2*num_segments).
-    """
-    N_seg = arm.num_segments
-    dof = 2 * N_seg
-    tip_index = N_seg - 1
-
-    traj_xyz = np.asarray(traj_xyz)
-    num_points = traj_xyz.shape[0]
-
-    q0 = np.array([np.deg2rad(0), np.deg2rad(10), np.deg2rad(10), np.deg2rad(10)])
-    delta = np.deg2rad(20) * np.ones(dof)
-
-    q = ca.SX.sym('q', num_points, dof)
-
-    cost = 0
-    constr_vars, constr_lbx, constr_ubx = [], [], []
-
-    for i in range(num_points):
-        i_prev = (i - 1) % num_points
-
-        # FK at step i
-        tips, _ = pcc_forward_kinematics(arm.s, q[i, :], arm.L_segs, num_segments=N_seg)
-        p_tip = ca.substitute(tips[tip_index], arm.s, 1.0)
-
-        # tracking + smoothness
-        dq = anglediff(q[i, :], q[i_prev, :])
-        cost += ca.sumsqr(p_tip - traj_xyz[i, :]) + w_smooth * ca.sumsqr(dq)
-
-        constr_vars.append(ca.transpose(dq))
-        constr_lbx.append(-delta)
-        constr_ubx.append(+delta)
-
-    g   = ca.vertcat(*constr_vars)
-    glb = np.concatenate(constr_lbx)
-    gub = np.concatenate(constr_ubx)
-
-    nlp  = {'x': ca.vec(q), 'f': cost, 'g': g}
-    opts = {'ipopt.print_level': 0, 'print_time': 0}
-    solver = ca.nlpsol('ik', 'ipopt', nlp, opts)
-
-    X0_mat = ca.repmat(ca.DM(q0).T, num_points, 1)
-    x0     = ca.vec(X0_mat)
-
-    nx  = num_points * dof
-    lbx = -np.inf * np.ones(nx)
-    ubx = +np.inf * np.ones(nx)
-
-    sol = solver(x0=x0, lbx=lbx, ubx=ubx, lbg=glb, ubg=gub)
-
-    Qsol_mat = ca.reshape(sol['x'], num_points, dof) 
-    Qsol = np.array(Qsol_mat)
-
-    debug_trajectory_generation_plot(arm, traj_xyz, Qsol)
-
-    return Qsol'''
-
 def generate_total_trajectory(arm,SIM_PARAMETERS,N,stabilizing_time=0, loop_time=6.0):
 
     T = SIM_PARAMETERS['T']
     dt = SIM_PARAMETERS['dt']
     q0 = SIM_PARAMETERS['x0']
+    radius = SIM_PARAMETERS['radius_trajectory']
+    center = SIM_PARAMETERS['center_trajectory']
+    rotation_angles = SIM_PARAMETERS['rotation_angles_trajectory']
 
     if T < stabilizing_time + loop_time:
         raise ValueError("Total sim time must be greater than stabilizing_time + loop_time")
@@ -374,25 +341,33 @@ def generate_total_trajectory(arm,SIM_PARAMETERS,N,stabilizing_time=0, loop_time
 
     # stabilize first at initial position
     num_stabilize_points = int(stabilizing_time//dt)
-    q_stabilize_traj = np.tile(q0, (num_stabilize_points, 1))
+    
 
     # follow the circular trajectory
-    xyz_circular_traj = circle_trajectory(radius=0.6*arm.L_segs[0], height=0.8*arm.L_segs[0], angle=np.deg2rad(75), num_points=int(loop_time//dt))
-
+    xyz_circular_traj = circle_trajectory(radius=radius, center=center, rotation_angles=rotation_angles, num_points=int(loop_time//dt))
+    dottet_plotting_traj = xyz_circular_traj.copy()
     q_traj = taskspace_to_jointspace(arm, xyz_circular_traj)
     
     idx0 = np.argmin(np.linalg.norm(q_traj - q0[:2*arm.num_segments], axis=1))
     q_traj = np.unwrap(np.roll(q_traj, -idx0, axis=0),axis=0) #start at the closest point to q0
+    xyz_circular_traj = np.unwrap(np.roll(xyz_circular_traj, -idx0, axis=0),axis=0)
 
     q_dot_traj = np.diff(np.vstack((q_traj,q_traj[0,:])),axis=0)/dt
     q_circ_traj = np.hstack((q_traj, q_dot_traj))
 
     q_circ_traj = np.tile(q_circ_traj, (int(number_of_loops), 1)) #more than necessary
+    xyz_circular_traj = np.tile(xyz_circular_traj, (int(number_of_loops), 1))
+
+    # give first point of circle for a moment to stabilize
+    q_stabilize_traj = np.tile(q_circ_traj[0], (num_stabilize_points, 1))
+    q_stabilize_traj[:,2*arm.num_segments:] = 0.0 # zero velocities
+    xyz_stabilize_traj = np.tile(xyz_circular_traj[0], (num_stabilize_points, 1))
 
     q_tot_traj = np.vstack((q_stabilize_traj, q_circ_traj))
+    xyz_tot_traj = np.vstack((xyz_stabilize_traj, xyz_circular_traj))
 
 
-    return q_tot_traj[:int(T//dt+N+2),:], xyz_circular_traj #+1 for the last point, +1 for the diff to be sure
+    return q_tot_traj[:int(T//dt+N+2),:], xyz_tot_traj, dottet_plotting_traj #+1 for the last point, +1 for the diff to be sure
 
 def anglediff(a, b):
     # CasADi-safe angle difference in [-pi, pi] # used when trying to solve ik smoothness problems
@@ -407,7 +382,7 @@ def debug_trajectory_generation_plot(arm, traj_xyz, Qsol):
     num_points = traj_xyz.shape[0]
     dof = 2 * N_seg
     q_row = ca.SX.sym('q_row', dof)
-    tips_row, _ = pcc_forward_kinematics(arm.s, q_row, arm.L_segs)
+    tips_row, _ = pcc_forward_kinematics(arm.s, q_row, arm.L_segs, num_segments=N_seg)
     p_tip_row = ca.substitute(tips_row[N_seg - 1], arm.s, 1.0)
     fk_tip = ca.Function('fk_tip', [q_row], [p_tip_row])
 

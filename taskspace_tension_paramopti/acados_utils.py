@@ -5,11 +5,11 @@ import numpy as np
 
 def export_pcc_acados_model(pcc_arm, name="pcc_arm_ocp"):
     nx = 4 * pcc_arm.num_segments
-    nu = 2 * pcc_arm.num_segments
+    nu = 3 * pcc_arm.num_segments
 
     x = ca.SX.sym('x', nx)
     u = ca.SX.sym('u', nu)
-    p_global = ca.SX.sym('p', nx+pcc_arm.num_adaptive_params)  # q0 + rho
+    p_global = ca.SX.sym('p', nx+pcc_arm.num_adaptive_params)  # q0
 
     model = AcadosModel()
     model.name = name
@@ -29,8 +29,8 @@ def setup_ocp_solver(pcc_arm, MPC_PARAMETERS, N, Tf):
 
     nx = model.x.size()[0]
     nu = model.u.size()[0]
-    ny = nx + nu
-    ny_e = nx
+    ny = 3 + 2*pcc_arm.num_segments + nu
+    ny_e = 3 + 2*pcc_arm.num_segments
     u_bound = MPC_PARAMETERS['u_bound']
     Q = MPC_PARAMETERS['Q']
     R = MPC_PARAMETERS['R']
@@ -39,17 +39,28 @@ def setup_ocp_solver(pcc_arm, MPC_PARAMETERS, N, Tf):
     # Horizon
     ocp.solver_options.N_horizon = N
     ocp.solver_options.tf = Tf
-    ocp.solver_options.levenberg_marquardt = 1e-3 
+    ocp.solver_options.nlp_solver_max_iter = 500
+
+    # ?? works better with these globalization settings if its breaking
+    '''ocp.solver_options.globalization_fixed_step_length = 0.5 
+    ocp.solver_options.globalization_full_step_dual = 1        # keep duals stable when primals take smaller steps'''
+
+    # ease the NLP stopping a bit around where you plateau
+    ocp.solver_options.nlp_solver_tol_stat  = 1e-4
+    ocp.solver_options.nlp_solver_tol_eq    = 1e-8
+    ocp.solver_options.nlp_solver_tol_ineq  = 1e-8
+    ocp.solver_options.nlp_solver_tol_comp  = 1e-7
 
     # Cost as NONLINEAR_LS on y = [x; u]
     ocp.cost.cost_type = 'NONLINEAR_LS'
     ocp.cost.cost_type_e = 'NONLINEAR_LS'
-    ocp.model.cost_y_expr = ca.vertcat(model.x, model.u)
-    ocp.model.cost_y_expr_e = model.x
+
+    ocp.model.cost_y_expr = ca.vertcat(pcc_arm.end_effector(model.x[:2*pcc_arm.num_segments]),model.x[2*pcc_arm.num_segments:], model.u)
+    ocp.model.cost_y_expr_e = ca.vertcat(pcc_arm.end_effector(model.x[:2*pcc_arm.num_segments]),model.x[2*pcc_arm.num_segments:])
 
     W = np.block([
-        [Q,                np.zeros((nx, nu))],
-        [np.zeros((nu, nx)),      R        ],
+        [Q,                np.zeros((3+2*pcc_arm.num_segments, nu))],
+        [np.zeros((nu, 3+2*pcc_arm.num_segments)),      R        ],
     ])
     ocp.cost.W = W
     ocp.cost.W_e = Qf
@@ -57,8 +68,13 @@ def setup_ocp_solver(pcc_arm, MPC_PARAMETERS, N, Tf):
     ocp.cost.yref_e = np.zeros(ny_e)
 
     # bounds
-    ocp.constraints.lbu = -u_bound * np.ones(nu)
-    ocp.constraints.ubu = +u_bound * np.ones(nu)
+    lbu = u_bound[0] * np.ones(nu)
+    ubu = u_bound[1] * np.ones(nu)
+    #lbu[5]=0 #simulate broken tendon
+    #ubu[5]=0
+    ocp.constraints.lbu = lbu
+    ocp.constraints.ubu = ubu
+
     ocp.constraints.idxbu = np.arange(nu, dtype=int)
 
     ocp.constraints.x0 = np.zeros(nx)
@@ -74,7 +90,7 @@ def setup_ocp_solver(pcc_arm, MPC_PARAMETERS, N, Tf):
 
 def setup_acados_integrator(pcc_arm, dt):
     """
-    Optional external simulator
+    Optional external simulator (you can keep using your own integrator_sim if you prefer).
     """
     sim = AcadosSim()
     sim.model = export_pcc_acados_model(pcc_arm, name="pcc_arm_sim")
@@ -84,7 +100,7 @@ def setup_acados_integrator(pcc_arm, dt):
     return AcadosSimSolver(sim)
 
 
-def mpc_step_acados(ocp_solver, x0, q_goal, p_adaptive, N):
+def mpc_step_acados(ocp_solver, x0, q_goal, p_adaptive,N):
 
     nx = ocp_solver.acados_ocp.dims.nx
     nu = ocp_solver.acados_ocp.dims.nu
@@ -93,7 +109,7 @@ def mpc_step_acados(ocp_solver, x0, q_goal, p_adaptive, N):
     ocp_solver.set(0, 'lbx', x0)
     ocp_solver.set(0, 'ubx', x0)
 
-    # Parameters p = q0 (same at every stage)
+    # Parameters p_global = q0 (same at every stage)
     ocp_solver.set_p_global_and_precompute_dependencies(np.hstack([x0, p_adaptive]))
 
     # yref for each stage/terminal

@@ -1,14 +1,7 @@
 
 
 '''
-TODO: breaks because M+A becomes not positive definite, calc eigenvalues of M and set a bound on A>-min_eigenvalue(M)+margin
-margin is important because M changes with configuration, so A must be large enough to compensate for all configurations 
-
-Or calc eigenvalues of M at each step and thus change bound on A accordingly, but this is more complex to implement
-
-
-
-Check why it comes back to zero when simu is different, this did not happeen with casadi, is it the new parameters??
+Main script to run acados MPC with full parameter adaptation on a PCC soft arm following a circular trajectory.
 
 '''
 
@@ -52,8 +45,8 @@ def main():
     #create adaptive solver
     param_solver, error_func = create_adaptative_parameters_solver(pcc_arm, MPC_PARAMETERS['N_rho'])
     #bounds:
-    lb_adaptive = [-0.001] * pcc_arm.num_adaptive_params
-    ub_adaptive = [0.001]*pcc_arm.num_adaptive_params
+    lb_adaptive = ca.vertcat(-1*np.array(ARM_PARAMETERS['d_eq']), -np.diag(ARM_PARAMETERS['K']))
+    ub_adaptive = [1e6]*pcc_arm.num_adaptive_params
 
     # Simu loop
     best_error = 1e10
@@ -101,11 +94,21 @@ def main():
                     states = np.hstack((pcc_arm.history[:,start_idx:end_idx],pcc_arm.true_current_state.reshape(-1,1))) # add current state because it has not been logged yet
                     inputs = np.hstack((pcc_arm.history_u[:,start_idx:end_idx],np.zeros((2*pcc_arm.num_segments,1)))) #add zeros that will never be accessed, just for the vstack
                     adaptative_solver_parameters = np.vstack((states, inputs)) 
-                    #error = error_func(pcc_arm.history_adaptive_param[:,pcc_arm.history_index-1], adaptative_solver_parameters)
                     error = np.sum(np.round(np.square(np.linalg.norm(pcc_arm.history[:, t-10:t-1] - pcc_arm.history_pred[:, t-11:t-2], axis=0)), decimals=4))
                     error_history.append(error)
                     error_history_time.append(t*SIM_PARAMETERS['dt'])
-                    if error > 0.1 and error < best_error: #solve only if significant error
+
+                    if error > 0.3:
+                        best_error = error
+                        solution = param_solver(x0=pcc_arm.history_adaptive_param[:,pcc_arm.history_index-1],p=adaptative_solver_parameters,lbx=lb_adaptive,ubx=ub_adaptive)
+                        param_sol = np.array(solution['x']).flatten()
+                        objective_val = solution['f']
+                        print(-lb_adaptive)
+                        print(param_sol)
+                    else:
+                        param_sol = pcc_arm.history_adaptive_param[:,pcc_arm.history_index-1]
+                    #print("\n Adapting parameters, error:", error, "objective value:", objective_val)
+                    '''if error > 0.1 and error < best_error: #solve only if significant error
                         best_error = error
                         best_error_history.append(best_error)
                         best_error_history_time.append(t*SIM_PARAMETERS['dt'])
@@ -119,7 +122,7 @@ def main():
                         print("\n C:", param_sol[8:12])
                         print("\n D:", param_sol[12:16])
                     else: 
-                        param_sol = pcc_arm.history_adaptive_param[:,pcc_arm.history_index-1]
+                        param_sol = pcc_arm.history_adaptive_param[:,pcc_arm.history_index-1]'''
                 else:
                     param_sol = np.zeros(pcc_arm.num_adaptive_params)
                 pcc_arm.history_adaptive_param[:, pcc_arm.history_index] = param_sol
@@ -140,13 +143,13 @@ def main():
                 traceback.print_exc()
                 break
     import matplotlib.pyplot as plt
-    plt.figure()
+    '''plt.figure()
     plt.plot(error_history_time, error_history, label='Error')
     plt.plot(best_error_history_time, best_error_history, label='Best error')
     plt.xlabel('Time [s]')
     plt.ylabel('Error')
     plt.title('Adaptative parameters error over time')
-    plt.show()
+    plt.show()'''
     print("--- %s seconds ---" % (time.time() - start_time))
     history_plot(pcc_arm,MPC_PARAMETERS['u_bound'],xyz_circular_traj)
 
@@ -185,13 +188,13 @@ def create_adaptative_parameters_solver(arm,N):
         p_global = ca.vertcat(state_history[:,-(i+2)], p_adaptative)
         q_pred = arm.integrator(x0=state_history[:,-(i+2)], u=u_history[:,-(i+2)], p_global=p_global)['xf']
         cost += ca.sumsqr(q_pred - state_history[:,-(i+1)])
-
+    cost+= ca.sumsqr(p_adaptative)  #regularization term to avoid too large parameters
     nlp = {'x': p_adaptative, 'p': p, 'f': cost}
     '''opts = {
         'ipopt.print_level': 0, 'print_time': 0,
         # warm-start & early-exit
         'ipopt.warm_start_init_point': 'yes',
-        'ipopt.max_cpu_time': 0.1,
+        'ipopt.max_cpu_time': 0.2,
         'ipopt.tol': 1e-2,
         'ipopt.acceptable_tol': 5e-2,
         'ipopt.acceptable_iter': 1,
@@ -199,8 +202,8 @@ def create_adaptative_parameters_solver(arm,N):
     opts = {
         'ipopt.warm_start_init_point': 'yes',
         'ipopt.acceptable_iter': 1,
-        #'ipopt.max_cpu_time': 0.1,
-        'ipopt.max_iter': 5,
+        'ipopt.max_cpu_time': 0.2,
+        'ipopt.max_iter': 10,
         'ipopt.print_level': 0, 'print_time': 0,
     }
     

@@ -9,7 +9,6 @@ rho=1220 #density
 r_o     = 0.04 # outer radius [m]
 t_wall  = 0.005 # wall thickness [m]
 r_i     = r_o - t_wall
-r_i = 0
 r_d = r_o  # radius at which tendons are located
 L = 0.2 #length of each segment
 A= np.pi*(r_o**2 - r_i**2)  # area
@@ -40,7 +39,7 @@ MPC_PARAMETERS = {
     "Qf": np.diag([5]*2*num_segments + [1]*2*num_segments),  # stronger terminal weight helps convergence
     "R": np.eye(2*num_segments),
     "u_bound": u_bound,
-    "N_rho": 20, #number of previous steps to consider for rho fluid estimation
+    "N_rho": 60, #number of previous steps to consider for rho fluid estimation
 }
 
 SIM_PARAMETERS = {
@@ -54,6 +53,7 @@ SIM_PARAMETERS = {
 }
 
 ARM_PARAMETERS = {
+    "m": m,
     "L_segs": [L, L],
     "r_o": r_o,
     "r_i": r_i,
