@@ -27,7 +27,7 @@ rho_liquid = rho_water  # density of the surrounding fluid
 
 
 horizon_time = 2  #seconds
-dt = 0.05  #seconds
+dt = 0.06  #seconds
 
 num_segments = 2
 

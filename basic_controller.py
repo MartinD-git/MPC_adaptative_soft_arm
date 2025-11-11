@@ -3,9 +3,11 @@
 from dynamixel_controller import DynamixelController, BaseModel
 import os
 import time
+
 import numpy as np
 from helper_funcs import *
-import getch
+from getch import getch
+from tqdm import tqdm
 
 
 """
@@ -31,7 +33,7 @@ print("Attempting to connect to dynamixels...")
 n_motors = 6  # Number of motors to control
 motor_list = []
 for i in range(n_motors):
-    motor_list.append(BaseModel(2*i))
+    motor_list.append(BaseModel(i))
 
 print("Motor list: " + str(motor_list))
 PORT = '/dev/ttyUSB0' 
@@ -55,7 +57,8 @@ openloop_current_trajectory = np.clip(openloop_current_trajectory, 0, 1.5)  # li
 openloop_current_trajectory = openloop_current_trajectory * 1000  # convert to mA
 
 #to test only the base:
-openloop_current_trajectory[:, 3:] = 0
+#openloop_current_trajectory[:, 3:] = 0
+#openloop_current_trajectory += 40 #add base current
 
 # use the actual motor order
 motor_permutation = [1,5,3,2,0,4]
@@ -63,24 +66,38 @@ idx = np.empty_like(motor_permutation)
 idx[motor_permutation] = np.arange(len(motor_permutation))
 openloop_current_trajectory = openloop_current_trajectory[:, idx]
 
-while 1:
-    print("Press any key to continue! (or press ESC to quit!)")
-    if getch() == chr(0x1b):
-        break
 
+index = 0
+print("Press any key to continue! (or press ESC to quit!)")
+if getch() == chr(0x1b):
+    exit()
+traj_tension = np.ones((1,n_motors))*300
+print(f"Desired mA: {traj_tension[index, :]}")
+controller.set_goal_current_mA(traj_tension[0, :])
 
-    for i in range(n_motors):
-        print(openloop_current_trajectory[index, i])
-
-
-    result_info = controller.read_info(retry=False, fast_read=False)
+for i in range(10):
+    time.sleep(0.1)
+    result_info = controller.read_info_with_unit(retry=False, fast_read=False)
     pos = result_info[0]
+    current = result_info[2]
+    print(f"Measured mA: {current}")
+
+print("Press any key to continue! (or press ESC to quit!)")
+if getch() == chr(0x1b):
+    exit()
+
+for index in tqdm(range(openloop_current_trajectory.shape[0])):
         
-    #controller.set_goal_current_mA(openloop_current_trajectory[index,:])
+    controller.set_goal_current_mA(openloop_current_trajectory[index,:])
     
     # wait 3s to let the motors move
-    time.sleep(0.05)
-
+    time.sleep(0.06)
+    if index % 20 == 0:
+        result_info = controller.read_info_with_unit(retry=False, fast_read=False)
+        pos = result_info[0]
+        current = result_info[2]
+        print(f"Desired mA: {openloop_current_trajectory[index, :]}")
+        print(f"Measured mA: {current}")
     # Change goal position
     if index < openloop_current_trajectory.shape[0] - 1:
         index += 1

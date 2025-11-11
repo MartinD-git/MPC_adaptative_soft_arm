@@ -51,6 +51,10 @@ def setup_ocp_solver(pcc_arm, MPC_PARAMETERS, N, Tf):
     ocp.solver_options.nlp_solver_tol_ineq  = 1e-8
     ocp.solver_options.nlp_solver_tol_comp  = 1e-7
 
+    ocp.solver_options.integrator_type = 'ERK'          # (default is fine too, just set steps)
+    ocp.solver_options.sim_method_num_stages = 4        # RK4
+    ocp.solver_options.sim_method_num_steps  = 8        # try 8..10 for dt = 0.1
+
     # Cost as NONLINEAR_LS on y = [x; u]
     ocp.cost.cost_type = 'NONLINEAR_LS'
     ocp.cost.cost_type_e = 'NONLINEAR_LS'
@@ -100,7 +104,7 @@ def setup_acados_integrator(pcc_arm, dt):
     return AcadosSimSolver(sim)
 
 
-def mpc_step_acados(ocp_solver, x0, q_goal,N):
+def mpc_step_acados(ocp_solver, x0, q_goal,N, u_bound):
 
     nx = ocp_solver.acados_ocp.dims.nx
     nu = ocp_solver.acados_ocp.dims.nu
@@ -114,7 +118,8 @@ def mpc_step_acados(ocp_solver, x0, q_goal,N):
 
     # yref for each stage/terminal
     for i in range(N):
-        yref_i = np.hstack([q_goal[:, i], np.zeros(nu)])
+        #yref_i = np.hstack([q_goal[:, i], np.zeros(nu)])
+        yref_i = np.hstack([q_goal[:, i], np.ones(nu)*u_bound[0]])
         ocp_solver.set(i, 'yref', yref_i)
     ocp_solver.set(N, 'yref', q_goal[:, N])  # terminal
 
