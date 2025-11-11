@@ -7,6 +7,19 @@ import numpy as np
 from helper_funcs import *
 import getch
 
+
+"""
+motor id list:
+id 5: segment 1, at pi
+id 3: segment 1, at -pi/3
+id 1: segment 1, at pi/3
+
+id 2: segment 2, at 0
+id 4: segment 2, at -2pi/3
+id 0: segment 2, at 2pi/3
+"""
+
+
 if os.name == 'nt':
     import msvcrt
     def getch():
@@ -41,6 +54,15 @@ openloop_current_trajectory = 0.54945054945 * (openloop_tension_trajectory*r_pul
 openloop_current_trajectory = np.clip(openloop_current_trajectory, 0, 1.5)  # limit current to 1.5A for safety
 openloop_current_trajectory = openloop_current_trajectory * 1000  # convert to mA
 
+#to test only the base:
+openloop_current_trajectory[:, 3:] = 0
+
+# use the actual motor order
+motor_permutation = [1,5,3,2,0,4]
+idx = np.empty_like(motor_permutation)
+idx[motor_permutation] = np.arange(len(motor_permutation))
+openloop_current_trajectory = openloop_current_trajectory[:, idx]
+
 while 1:
     print("Press any key to continue! (or press ESC to quit!)")
     if getch() == chr(0x1b):
@@ -64,6 +86,7 @@ while 1:
         index += 1
     else:
         break
+
 
 
 

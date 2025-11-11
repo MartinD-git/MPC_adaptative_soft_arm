@@ -52,11 +52,23 @@ SIM_PARAMETERS = {
     "rotation_angles_trajectory": np.array([np.deg2rad(0), np.deg2rad(60), np.deg2rad(0)]),
 }
 
+"""
+motor id list:
+id 1: segment 1, at pi/3
+id 5: segment 1, at pi
+id 3: segment 1, at 5*pi/3
+
+id 2: segment 2, at 0
+id 0: segment 2, at 2pi/3
+id 4: segment 2, at 4pi/3
+
+"""
+
 ARM_PARAMETERS = {
     "L_segs": [L, L],
     "r_o": r_o,
     "r_i": r_i,
-    "sigma_k": [0, 2*np.pi/3,2*2*np.pi/3, np.pi/3, np.pi,5*np.pi/3],  # tendon routing angles
+    "sigma_k": [np.pi/3, np.pi, 5*np.pi/3,0, 2*np.pi/3, 4*np.pi/3],  # tendon routing angles
     "rho_arm": rho,
     "d_eq": [d, d],
     "K": np.diag([k_phi, k_theta, k_phi, k_theta]),
