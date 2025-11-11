@@ -34,7 +34,7 @@ for i in range(n_motors):
     motor_list.append(BaseModel(2*i))
 
 print("Motor list: " + str(motor_list))
-PORT = "/dev/ttyUSB0" 
+PORT = '/dev/ttyUSB0' 
 controller = DynamixelController(PORT, motor_list, baudrate=57600, latency_time=10)
 controller.activate_controller()
 controller.torque_off()
