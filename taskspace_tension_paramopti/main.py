@@ -90,8 +90,8 @@ def main():
                     adaptative_solver_parameters = np.vstack((states, inputs)) 
                     error = np.sum(np.round(np.square(np.linalg.norm(pcc_arm.history[:, t-MPC_PARAMETERS['N_p_adaptative']:t-1] - pcc_arm.history_pred[:, t-MPC_PARAMETERS['N_p_adaptative']-1:t-2], axis=0)), decimals=4))
 
-                    if error > 0.3 and True:
-                        solution = param_solver(x0=pcc_arm.history_adaptive_param[:,pcc_arm.history_index-1],p=[adaptative_solver_parameters,pcc_arm.history_adaptive_param[:,pcc_arm.history_index-1]],lbx=lb_adaptive,ubx=ub_adaptive)
+                    if error > 0.3 and False:
+                        solution = param_solver(x0=pcc_arm.history_adaptive_param[:,pcc_arm.history_index-1],p=adaptative_solver_parameters,lbx=lb_adaptive,ubx=ub_adaptive)
                         param_sol = np.array(solution['x']).flatten()
                         #objective_val = solution['f']
                         print(-lb_adaptive)
@@ -128,9 +128,7 @@ def create_adaptative_parameters_solver(arm,N):
     add SDP constraint because M+A must be pos def as it represents mass, first tries without it
     '''
     p_adaptative = ca.MX.sym('p_adaptative', arm.num_adaptive_params)
-    p_adaptative_prev = ca.MX.sym('p_adaptative_prev', arm.num_adaptive_params)
     p= ca.MX.sym('p', 4*arm.num_segments + 3*arm.num_segments,N+1) #state, control
-
     state_history = p[0:4*arm.num_segments,:]
     u_history = p[4*arm.num_segments:,:]
     cost=0
@@ -139,8 +137,7 @@ def create_adaptative_parameters_solver(arm,N):
         q_pred = arm.integrator(x0=state_history[:,-(i+2)], u=u_history[:,-(i+2)], p_global=p_global)['xf']
         cost += ca.sumsqr(q_pred - state_history[:,-(i+1)])
     cost+= ca.sumsqr(p_adaptative)  #regularization term to avoid too large parameters
-    cost+= 10*ca.sumsqr(p_adaptative - p_adaptative_prev)  #regularization term to avoid too large changes
-    nlp = {'x': p_adaptative, 'p': [p,p_adaptative_prev], 'f': cost}
+    nlp = {'x': p_adaptative, 'p': p, 'f': cost}
     '''opts = {
         'ipopt.print_level': 0, 'print_time': 0,
         # warm-start & early-exit
@@ -153,7 +150,7 @@ def create_adaptative_parameters_solver(arm,N):
     opts = {
         'ipopt.warm_start_init_point': 'yes',
         'ipopt.acceptable_iter': 1,
-        'ipopt.max_cpu_time': 0.1,
+        'ipopt.max_cpu_time': 0.05,
         'ipopt.print_level': 0, 'print_time': 0,
     }
     
