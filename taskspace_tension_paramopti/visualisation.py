@@ -9,10 +9,10 @@ def history_plot(pcc_arm,u_bound,xyz_traj=None):
     history_d = pcc_arm.history_d[:, :pcc_arm.history_index].T
     history_u = pcc_arm.history_u[:, :pcc_arm.history_index].T
     history_u_tendon = pcc_arm.history_u_tendon[:, :pcc_arm.history_index].T
-    np.savetxt(out_dir + "history_u.csv", history_u, delimiter=",")
+    '''np.savetxt(out_dir + "history_u.csv", history_u, delimiter=",")
     np.savetxt(out_dir + "history_d.csv", history_d, delimiter=",")
     np.savetxt(out_dir + "history_angles.csv", history, delimiter=",")
-    np.savetxt(out_dir + "history_u_tendon.csv", history_u_tendon, delimiter=",")
+    np.savetxt(out_dir + "history_u_tendon.csv", history_u_tendon, delimiter=",")'''
 
     M_raw = np.hstack((history, history_d, history_u)).T  # (30, T)
     M = normalize(M_raw,u_bound,pcc_arm.num_segments)

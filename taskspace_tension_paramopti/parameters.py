@@ -17,8 +17,9 @@ I = np.pi*(r_o**4 - r_i**4)/4 #second moment of area
 m = rho * A * L #mass of each segment
 k_phi = 0
 k_theta = 0.015634 #gotten from static simulation or (E*I)/L
-xi=0.15
+xi=0.05
 d = 2*xi*1.875**2 * np.sqrt((rho*A*E*I)/(L**2))
+
 
 rho_water = 1000 #density of water
 rho_air = 1.225 #density of air
@@ -68,3 +69,6 @@ ARM_PARAMETERS = {
 '''print("MPC_PARAMETERS:", MPC_PARAMETERS)
 print("ARM_PARAMETERS:", ARM_PARAMETERS)
 print("SIM_PARAMETERS:", SIM_PARAMETERS)'''
+
+print("ARM_PARAMETERS:", ARM_PARAMETERS)
+print("mass",m)

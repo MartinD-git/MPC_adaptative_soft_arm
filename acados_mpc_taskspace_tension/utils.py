@@ -137,7 +137,7 @@ def pcc_dynamics(arm,q, q_dot, tips, jacobians,water=False):
         
         for i, Ji in enumerate(jacobians):
             v_i = Ji @ q_dot
-            vmag = ca.norm_2(v_i)+ 1e-8 # + 1e-6 to be smooth
+            vmag = ca.norm_2(v_i)+ 1e-8
             Aproj = (2*arm.r_o)*arm.L_segs[i] # projected area per segment
             D_fluid += 0.5 * rho_fluid * arm.C_d * Aproj * vmag * (Ji.T @ Ji)
             
