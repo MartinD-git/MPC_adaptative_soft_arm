@@ -87,7 +87,7 @@ def main():
 
 #######################################
 # Update rho fluid based on history
-                if pcc_arm.history_index > (MPC_PARAMETERS['N_rho'] + 5):
+                if pcc_arm.history_index > (MPC_PARAMETERS['N_rho'] + 5) and False:
                     start_idx = pcc_arm.history_index - MPC_PARAMETERS['N_rho']
                     end_idx = pcc_arm.history_index
                     #To do: use meas states not true states thus creates a new history array

@@ -39,19 +39,20 @@ def setup_ocp_solver(pcc_arm, MPC_PARAMETERS, N, Tf):
     # Horizon
     ocp.solver_options.N_horizon = N
     ocp.solver_options.tf = Tf
-    ocp.solver_options.nlp_solver_max_iter = 200
-    ocp.solver_options.qp_solver = 'FULL_CONDENSING_QPOASES'
-    ocp.solver_options.qp_solver_cond_N = 1     # full condensing
+    ocp.solver_options.nlp_solver_max_iter = 500
 
     # ?? works better with these globalization settings if its breaking
-    '''ocp.solver_options.globalization_fixed_step_length = 0.5 
-    ocp.solver_options.globalization_full_step_dual = 1        # keep duals stable when primals take smaller steps'''
+    #ocp.solver_options.globalization_fixed_step_length = 0.3 
+    #ocp.solver_options.globalization_full_step_dual = 1        # keep duals stable when primals take smaller steps
+    ocp.solver_options.globalization = 'MERIT_BACKTRACKING'
+    ocp.solver_options.regularize_method = 'MIRROR'
+    ocp.solver_options.levenberg_marquardt = 1e-1
 
     # ease the NLP stopping a bit around where you plateau
-    ocp.solver_options.nlp_solver_tol_stat  = 1e-4
-    ocp.solver_options.nlp_solver_tol_eq    = 1e-8
-    ocp.solver_options.nlp_solver_tol_ineq  = 1e-8
-    ocp.solver_options.nlp_solver_tol_comp  = 1e-7
+    ocp.solver_options.nlp_solver_tol_stat  = 5e-4
+    ocp.solver_options.nlp_solver_tol_eq    = 1e-6
+    ocp.solver_options.nlp_solver_tol_ineq  = 1e-6
+    ocp.solver_options.nlp_solver_tol_comp  = 1e-6
 
     # Cost as NONLINEAR_LS on y = [x; u]
     ocp.cost.cost_type = 'NONLINEAR_LS'
@@ -87,6 +88,8 @@ def setup_ocp_solver(pcc_arm, MPC_PARAMETERS, N, Tf):
 
     acados_ocp_solver = AcadosOcpSolver(ocp)
 
+    acados_ocp_solver.options_set('globalization_use_SOC', 1)
+
     return acados_ocp_solver
 
 
@@ -106,7 +109,6 @@ def mpc_step_acados(ocp_solver, x0, q_goal, p_adaptive,N):
 
     nx = ocp_solver.acados_ocp.dims.nx
     nu = ocp_solver.acados_ocp.dims.nu
-
     # x0
     ocp_solver.set(0, 'lbx', x0)
     ocp_solver.set(0, 'ubx', x0)

@@ -27,7 +27,7 @@ rho_liquid = rho_water  # density of the surrounding fluid
 
 
 horizon_time = 2  #seconds
-dt = 0.06  #seconds
+dt = 0.1  #seconds
 
 num_segments = 2
 
@@ -47,8 +47,8 @@ SIM_PARAMETERS = {
         0, 0, 0, 0
     ]),
     "T_loop": 10,  # seconds
-    "radius_trajectory": 0.4*L,
-    "center_trajectory": np.array([0.8, 0, 1.3])*L,
+    "radius_trajectory": 0.5*L,
+    "center_trajectory": np.array([1, 0, 1])*L,
     "rotation_angles_trajectory": np.array([np.deg2rad(0), np.deg2rad(60), np.deg2rad(0)]),
 }
 

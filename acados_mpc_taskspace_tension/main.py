@@ -54,7 +54,6 @@ def main():
                 # MPC
                 loop_time_0 = time.time()
 
-                #q_goal_value = q_tot_traj[t:t+N+1,:].T
                 #q_goal_value = np.vstack((xyz_circular_traj[t:t+N+1,:].T,q_tot_traj[t:t+N+1,2*pcc_arm.num_segments:].T))  # shifted by one time step
                 q_goal_value = np.vstack((xyz_circular_traj[t:t+N+1,:].T,np.zeros((2*pcc_arm.num_segments,N+1))))  # zero velocities
 

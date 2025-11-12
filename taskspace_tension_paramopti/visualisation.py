@@ -9,6 +9,7 @@ def history_plot(pcc_arm,u_bound,xyz_traj=None):
     history_d = pcc_arm.history_d[:, :pcc_arm.history_index].T
     history_u = pcc_arm.history_u[:, :pcc_arm.history_index].T
     history_u_tendon = pcc_arm.history_u_tendon[:, :pcc_arm.history_index].T
+    history_param = pcc_arm.history_adaptive_param[:, :pcc_arm.history_index].T
     '''np.savetxt(out_dir + "history_u.csv", history_u, delimiter=",")
     np.savetxt(out_dir + "history_d.csv", history_d, delimiter=",")
     np.savetxt(out_dir + "history_angles.csv", history, delimiter=",")
@@ -60,6 +61,28 @@ def history_plot(pcc_arm,u_bound,xyz_traj=None):
         
     plt.tight_layout()
     #plt.savefig(out_dir + "tendon_tensions.png", dpi=200)
+
+    #error plot
+    initial_param = np.concatenate([np.array(pcc_arm.d_eq), np.diagonal(pcc_arm.K)])
+    fig, axes = plt.subplots(2, 2, figsize=(12, 10), sharex=True)
+    axes = axes.ravel()
+
+    for i in range(4):
+        ax = axes[i]
+        ax.plot(time, history_param[:, i], label=f'Param {i+1}')
+        ax.axhline(initial_param[i], linestyle='--', label='Initial Value')  # horizontal reference line
+        ax.set_title(f'Adaptive Parameter {i+1} over Time')
+        if i >= 4:  # bottom row
+            ax.set_xlabel('Time [s]')
+        if i % 2 == 0:  # left column
+            ax.set_ylabel('Parameter Value')
+        ax.legend()
+
+    fig.tight_layout()
+
+        #plt.savefig(out_dir + f"adaptive_param_{i+1}.png", dpi=200)
+
+
 
     # 3d animation
     #get posture from shape function

@@ -39,11 +39,11 @@ def setup_ocp_solver(pcc_arm, MPC_PARAMETERS, N, Tf):
     # Horizon
     ocp.solver_options.N_horizon = N
     ocp.solver_options.tf = Tf
-    ocp.solver_options.nlp_solver_max_iter = 500
+    ocp.solver_options.nlp_solver_max_iter = 300
 
     # ?? works better with these globalization settings if its breaking
-    '''ocp.solver_options.globalization_fixed_step_length = 0.5 
-    ocp.solver_options.globalization_full_step_dual = 1        # keep duals stable when primals take smaller steps'''
+    ocp.solver_options.globalization_fixed_step_length = 0.5 
+    ocp.solver_options.globalization_full_step_dual = 1        # keep duals stable when primals take smaller steps
 
     # ease the NLP stopping a bit around where you plateau
     ocp.solver_options.nlp_solver_tol_stat  = 1e-4
@@ -51,9 +51,7 @@ def setup_ocp_solver(pcc_arm, MPC_PARAMETERS, N, Tf):
     ocp.solver_options.nlp_solver_tol_ineq  = 1e-8
     ocp.solver_options.nlp_solver_tol_comp  = 1e-7
 
-    ocp.solver_options.integrator_type = 'ERK'          # (default is fine too, just set steps)
-    ocp.solver_options.sim_method_num_stages = 4        # RK4
-    ocp.solver_options.sim_method_num_steps  = 8        # try 8..10 for dt = 0.1
+    ocp.solver_options.sim_method_num_steps  = 10  
 
     # Cost as NONLINEAR_LS on y = [x; u]
     ocp.cost.cost_type = 'NONLINEAR_LS'
@@ -109,6 +107,8 @@ def mpc_step_acados(ocp_solver, x0, q_goal,N, u_bound):
     nx = ocp_solver.acados_ocp.dims.nx
     nu = ocp_solver.acados_ocp.dims.nu
 
+    warm_start_from_previous(ocp_solver)
+    ocp_solver.set(0, 'x', x0)
     # x0
     ocp_solver.set(0, 'lbx', x0)
     ocp_solver.set(0, 'ubx', x0)
@@ -127,3 +127,16 @@ def mpc_step_acados(ocp_solver, x0, q_goal,N, u_bound):
     u0 = ocp_solver.solve_for_x0(x0)
 
     return u0
+
+def warm_start_from_previous(ocp_solver):
+    N = ocp_solver.acados_ocp.dims.N
+    # shift states: x_i <- x_{i+1}, keep last as is
+    for i in range(N):
+        x_next = ocp_solver.get(i+1, 'x')
+        ocp_solver.set(i, 'x', x_next)
+    ocp_solver.set(N, 'x', x_next)
+
+    # shift controls: u_i <- u_{i+1}, keep last as is
+    for i in range(N-1):
+        u_next = ocp_solver.get(i+1, 'u')
+        ocp_solver.set(i, 'u', u_next)

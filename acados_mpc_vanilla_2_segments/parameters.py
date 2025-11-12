@@ -2,24 +2,25 @@ import numpy as np
 
 # we consider a segment as a cylinder:
 #material: TPU
-E= 1e6 #Young modulus23e6
+E= 23e6 #Young modulus23e6
 rho=1220 #density
 
 #arm
 r_o     = 0.04 # outer radius [m]
-t_wall  = 0.005 # wall thickness [m]
+t_wall  = 0.004 # wall thickness [m]
 r_i     = r_o - t_wall
-r_i = 0
-r_d = r_o  # radius at which tendons are located
-L = 0.2 #length of each segment
+r_d = 0.036  # radius at which tendons are located
+L = 0.315 #length of each segment
+
 A= np.pi*(r_o**2 - r_i**2)  # area
 I = np.pi*(r_o**4 - r_i**4)/4 #second moment of area
 m = rho * A * L #mass of each segment
 k_phi = 0
 k_theta = 0.015634 #gotten from static simulation or (E*I)/L
-xi=0.2
+xi=0.15
 d = 2*xi*1.875**2 * np.sqrt((rho*A*E*I)/(L**2))
-tension_bound = 2/0.05 #2 is motor limit, shaft is at 0.01m
+tension_bound = 30 #2 is motor limit, shaft is at 0.01m
+
 u_bound = tension_bound*r_d
 
 rho_water = 1000 #density of water
@@ -29,7 +30,7 @@ rho_liquid = rho_water  # density of the surrounding fluid
 
 
 horizon_time = 3  #seconds
-dt = 0.05  #seconds
+dt = 0.1  #seconds
 
 num_segments = 2
 

@@ -127,7 +127,9 @@ def pcc_dynamics(arm,q, q_dot, tips, jacobians,water=False):
 
     p_adaptative = ca.SX.sym('p_adaptative', arm.num_adaptive_params, 1)
     d_eq += p_adaptative[0:2]  # damping adaptative
-    K = arm.K + ca.diag(p_adaptative[2:])  # stiffness adaptative
+    #K = arm.K + ca.diag(p_adaptative[2:])
+
+    K = arm.K + ca.diag(ca.vertcat(0, p_adaptative[2], 0, p_adaptative[3]))
 
     J = ca.vertcat(*jacobians)
 
@@ -141,7 +143,7 @@ def pcc_dynamics(arm,q, q_dot, tips, jacobians,water=False):
         
         for i, Ji in enumerate(jacobians):
             v_i = Ji @ q_dot
-            vmag = ca.norm_2(v_i)+ 1e-8 # + 1e-6 to be smooth
+            vmag = ca.norm_2(v_i)+ 1e-8 # to be smooth
             Aproj = (2*arm.r_o)*arm.L_segs[i] # projected area per segment
             D_fluid += 0.5 * rho_fluid * arm.C_d * Aproj * vmag * (Ji.T @ Ji)
             

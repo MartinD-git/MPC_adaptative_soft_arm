@@ -28,7 +28,7 @@ rho_liquid = rho_water  # density of the surrounding fluid
 
 
 horizon_time = 2  #seconds
-dt = 0.05  #seconds
+dt = 0.1  #seconds
 
 num_segments = 2
 
@@ -38,19 +38,19 @@ MPC_PARAMETERS = {
     "Qf": np.diag([1e3]*3 + [1]*2*num_segments),  # stronger terminal weight helps convergence
     "R": 1e-4*np.eye(3*num_segments),
     "u_bound": [2,30],#[0,tension_bound],
-    "N_p_adaptative": 20, #number of previous steps to consider for parameter estimation
+    "N_p_adaptative": 50, #number of previous steps to consider for parameter estimation
 }
 
 SIM_PARAMETERS = {
     "dt": dt,
-    "T": 20,
+    "T": 240,
     "x0": np.array([ # phi, theta
         np.deg2rad(0), np.deg2rad(1e-6), np.deg2rad(0), np.deg2rad(0), # phi is angle at base, theta is curvature
         0, 0, 0, 0
     ]),
-    "T_loop": 10,  # seconds
-    "radius_trajectory": 0.4*L,
-    "center_trajectory": np.array([0.8, 0, 1.3])*L,
+    "T_loop": 20,  # seconds
+    "radius_trajectory": 0.5*L,
+    "center_trajectory": np.array([1, 0, 1])*L,
     "rotation_angles_trajectory": np.array([np.deg2rad(0), np.deg2rad(60), np.deg2rad(0)]),
 }
 
@@ -58,7 +58,7 @@ ARM_PARAMETERS = {
     "L_segs": [L, L],
     "r_o": r_o,
     "r_i": r_i,
-    "sigma_k": [0, 2*np.pi/3,2*2*np.pi/3, np.pi/3, np.pi,5*np.pi/3],  # tendon routing angles
+    "sigma_k": [np.pi/3, np.pi, 5*np.pi/3,0, 2*np.pi/3, 4*np.pi/3],  # tendon routing angles
     "rho_arm": rho,
     "d_eq": [d, d],
     "K": np.diag([k_phi, k_theta, k_phi, k_theta]),
@@ -66,9 +66,4 @@ ARM_PARAMETERS = {
     "rho_liquid": rho_liquid,
     "r_d": r_d,
 }
-'''print("MPC_PARAMETERS:", MPC_PARAMETERS)
-print("ARM_PARAMETERS:", ARM_PARAMETERS)
-print("SIM_PARAMETERS:", SIM_PARAMETERS)'''
 
-print("ARM_PARAMETERS:", ARM_PARAMETERS)
-print("mass",m)
