@@ -41,7 +41,7 @@ MPC_PARAMETERS = {
 
 SIM_PARAMETERS = {
     "dt": dt,
-    "T": 20,
+    "T": 10,
     "x0": np.array([ # phi, theta
         np.deg2rad(0), np.deg2rad(1e-6), np.deg2rad(0), np.deg2rad(0), # phi is angle at base, theta is curvature
         0, 0, 0, 0

@@ -1,20 +1,21 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
+import matplotlib as mpl
 
-out_dir = "csv_and_plots/"
+out_dir = "csv_and_plots_adapt/"
 
-def history_plot(pcc_arm,u_bound,xyz_traj=None):
+def history_plot(pcc_arm,u_bound,xyz_traj=None, save=False):
     history = pcc_arm.history[:, :pcc_arm.history_index].T
     history_d = pcc_arm.history_d[:, :pcc_arm.history_index].T
     history_u = pcc_arm.history_u[:, :pcc_arm.history_index].T
     history_u_tendon = pcc_arm.history_u_tendon[:, :pcc_arm.history_index].T
     history_param = pcc_arm.history_adaptive_param[:, :pcc_arm.history_index].T
-    '''np.savetxt(out_dir + "history_u.csv", history_u, delimiter=",")
-    np.savetxt(out_dir + "history_d.csv", history_d, delimiter=",")
-    np.savetxt(out_dir + "history_angles.csv", history, delimiter=",")
-    np.savetxt(out_dir + "history_u_tendon.csv", history_u_tendon, delimiter=",")'''
-
+    if save:
+        np.savetxt(out_dir + "history_u.csv", history_u, delimiter=",")
+        np.savetxt(out_dir + "history_d.csv", history_d, delimiter=",")
+        np.savetxt(out_dir + "history_angles.csv", history, delimiter=",")
+        np.savetxt(out_dir + "history_u_tendon.csv", history_u_tendon, delimiter=",")
     M_raw = np.hstack((history, history_d, history_u)).T  # (30, T)
     M = normalize(M_raw,u_bound,pcc_arm.num_segments)
     time = np.arange(history.shape[0]) * pcc_arm.dt
@@ -41,7 +42,8 @@ def history_plot(pcc_arm,u_bound,xyz_traj=None):
         axs[1].set_title('Theta and Torque')
         axs[1].set_xlabel('Time [s]'); axs[1].set_ylabel('Normalized'); axs[1].legend()
         plt.tight_layout()
-        #plt.savefig(out_dir + f"segment_{i+1}_states_and_torques.png", dpi=200)
+        if save:
+            plt.savefig(out_dir + f"segment_{i+1}_states_and_torques.png", dpi=200)
 
 
     # tendon plot 
@@ -60,10 +62,11 @@ def history_plot(pcc_arm,u_bound,xyz_traj=None):
         axs[i].legend()
         
     plt.tight_layout()
-    #plt.savefig(out_dir + "tendon_tensions.png", dpi=200)
+    if save:
+        plt.savefig(out_dir + "tendon_tensions.png", dpi=200)
 
     #error plot
-    initial_param = np.concatenate([np.array(pcc_arm.d_eq), np.diagonal(pcc_arm.K)])
+    initial_param = np.concatenate([np.array(pcc_arm.d_eq), [pcc_arm.K[1,1]], [pcc_arm.K[3,3]]])  # damping per segment + bending stiffness per segment
     fig, axes = plt.subplots(2, 2, figsize=(12, 10), sharex=True)
     axes = axes.ravel()
 
@@ -80,7 +83,8 @@ def history_plot(pcc_arm,u_bound,xyz_traj=None):
 
     fig.tight_layout()
 
-        #plt.savefig(out_dir + f"adaptive_param_{i+1}.png", dpi=200)
+    if save:
+        plt.savefig(out_dir + "adaptive_parameters.png", dpi=200)
 
 
 
@@ -127,14 +131,14 @@ def history_plot(pcc_arm,u_bound,xyz_traj=None):
         fig, 
         func=update_line, 
         frames=len(history), 
-        fargs=(points1, points2, lines, tip_line[0], tip_trajectory),
+        fargs=(points1, points2, lines, tip_line[0], tip_trajectory,ax,pcc_arm.dt),
         interval=pcc_arm.dt * 1000
     )
-
-    '''print("Saving animation")
-    mpl.rcParams['animation.ffmpeg_path'] = '/usr/bin/ffmpeg'
-    ani.save(out_dir + 'broken_base_tendon.mp4', writer='ffmpeg', fps=int(round(1.0 / pcc_arm.dt)), dpi=200)
-    print("Animation saved")'''
+    if save:
+        print("Saving animation")
+        mpl.rcParams['animation.ffmpeg_path'] = '/usr/bin/ffmpeg'
+        ani.save(out_dir + 'broken_base_tendon.mp4', writer='ffmpeg', fps=int(round(1.0 / pcc_arm.dt)), dpi=200)
+        print("Animation saved")
     plt.show()
 
 def normalize(M,u_bound,num_segments, eps=1e-8):
@@ -151,13 +155,16 @@ def normalize(M,u_bound,num_segments, eps=1e-8):
     np.divide(M, divider.reshape(-1,1), out=out, where=divider.reshape(-1,1) >= eps)
     return out
 
-def update_line(num, points1, points2, lines, tip_line=None, tip_trajectory=None):
+def update_line(num, points1, points2, lines, tip_line=None, tip_trajectory=None, ax=None, dt=0.1):
     pts1 = points1[num]
     pts2 = points2[num]
     lines[0].set_data(pts1[0, :], pts1[1, :])
     lines[0].set_3d_properties(pts1[2, :])
     lines[1].set_data(pts2[0, :], pts2[1, :])
     lines[1].set_3d_properties(pts2[2, :])
+
+    #update title
+    ax.set_title(f'Kite 3D Trajectory Animation - Time: {num*dt:.2f} s')
 
     if tip_line is not None:
         tip_line.set_data(tip_trajectory[:num+1,0], tip_trajectory[:num+1,1])

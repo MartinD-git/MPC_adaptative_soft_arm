@@ -40,7 +40,11 @@ def main():
 
     #generate circular trajectory (N,4*num_segments)
     print("Generating trajectory")
-    q_tot_traj, xyz_circular_traj, dottet_plotting_traj = generate_total_trajectory(pcc_arm,SIM_PARAMETERS,N,stabilizing_time=0, loop_time=SIM_PARAMETERS['T_loop'])
+    #q_tot_traj, xyz_circular_traj, dottet_plotting_traj = generate_total_trajectory(pcc_arm,SIM_PARAMETERS,N,stabilizing_time=0, loop_time=SIM_PARAMETERS['T_loop'])
+    first_point = np.array([0.1*pcc_arm.L_segs[0],0.0,1.8*pcc_arm.L_segs[0]])
+    second_point = np.array([1*pcc_arm.L_segs[0],0.0,1.5*pcc_arm.L_segs[0]])
+    xyz_circular_traj = np.vstack((np.tile(first_point,(num_iter//2+1,1)), np.linspace(first_point,second_point,num_iter//4),np.tile(first_point,(num_iter//4+N+1,1))))
+    dottet_plotting_traj = np.vstack((np.array([[0.0,0.0,2*pcc_arm.L_segs[0]]]), first_point, second_point))
     print("Trajectory is generated")
     
     # Create Acados OCP solver

@@ -104,7 +104,7 @@ def history_plot(pcc_arm,u_bound,xyz_traj=None):
         fig, 
         func=update_line, 
         frames=len(history), 
-        fargs=(points1, points2, lines, tip_line[0], tip_trajectory),
+        fargs=(points1, points2, lines, tip_line[0], tip_trajectory, tip_trajectory,ax,pcc_arm.dt),
         interval=pcc_arm.dt * 1000
     )
 
@@ -128,13 +128,16 @@ def normalize(M,u_bound,num_segments, eps=1e-8):
     np.divide(M, divider.reshape(-1,1), out=out, where=divider.reshape(-1,1) >= eps)
     return out
 
-def update_line(num, points1, points2, lines, tip_line=None, tip_trajectory=None):
+def update_line(num, points1, points2, lines, tip_line=None, tip_trajectory=None, ax=None, dt=0.1):
     pts1 = points1[num]
     pts2 = points2[num]
     lines[0].set_data(pts1[0, :], pts1[1, :])
     lines[0].set_3d_properties(pts1[2, :])
     lines[1].set_data(pts2[0, :], pts2[1, :])
     lines[1].set_3d_properties(pts2[2, :])
+
+    #update title
+    ax.set_title(f'Kite 3D Trajectory Animation - Time: {num*dt:.2f} s')
 
     if tip_line is not None:
         tip_line.set_data(tip_trajectory[:num+1,0], tip_trajectory[:num+1,1])

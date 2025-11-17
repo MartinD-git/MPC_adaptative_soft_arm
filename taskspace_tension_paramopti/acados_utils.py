@@ -88,7 +88,7 @@ def setup_ocp_solver(pcc_arm, MPC_PARAMETERS, N, Tf):
 
     acados_ocp_solver = AcadosOcpSolver(ocp)
 
-    acados_ocp_solver.options_set('globalization_use_SOC', 1)
+   # acados_ocp_solver.options_set('globalization_use_SOC', 1)
 
     return acados_ocp_solver
 
@@ -105,13 +105,18 @@ def setup_acados_integrator(pcc_arm, dt):
     return AcadosSimSolver(sim)
 
 
-def mpc_step_acados(ocp_solver, x0, q_goal, p_adaptive,N):
+def mpc_step_acados(ocp_solver, x0, q_goal, p_adaptive,N, u_prev, u_bound):
 
     nx = ocp_solver.acados_ocp.dims.nx
     nu = ocp_solver.acados_ocp.dims.nu
     # x0
     ocp_solver.set(0, 'lbx', x0)
     ocp_solver.set(0, 'ubx', x0)
+
+    #bounds
+    lbu = u_bound[0] * np.ones(nu)
+    ubu = u_bound[1] * np.ones(nu)
+
 
     # Parameters p_global = q0 (same at every stage)
     ocp_solver.set_p_global_and_precompute_dependencies(np.hstack([x0, p_adaptive]))
@@ -120,6 +125,14 @@ def mpc_step_acados(ocp_solver, x0, q_goal, p_adaptive,N):
     for i in range(N):
         yref_i = np.hstack([q_goal[:, i], np.zeros(nu)])
         ocp_solver.set(i, 'yref', yref_i)
+        # bounds
+        lbu_local = u_prev - 3*(i+1)*np.ones(nu)
+        ubu_local = u_prev + 3*(i+1)*np.ones(nu)
+
+        #print(np.max(np.vstack((lbu_local, lbu)),axis=0))
+        #print(np.min(np.vstack((ubu_local, ubu)),axis=0))
+        ocp_solver.constraints_set(i, 'lbu', np.max(np.vstack((lbu_local, lbu)),axis=0))
+        ocp_solver.constraints_set(i, 'ubu', np.min(np.vstack((ubu_local, ubu)),axis=0))
     ocp_solver.set(N, 'yref', q_goal[:, N])  # terminal
 
     # solve
