@@ -172,7 +172,11 @@ def pcc_dynamics(arm,q, q_dot, tips, jacobians,water=False):
 
     x = ca.SX.sym('x', 4*num_segments)
     u = ca.SX.sym('u', 2*num_segments)
-    q0 = ca.SX.sym('q0', 4*num_segments)
+    #q0 = ca.SX.sym('q0', 4*num_segments)
+    q0 = np.array([ # phi, theta
+        np.deg2rad(0), np.deg2rad(1e-6), np.deg2rad(0), np.deg2rad(0), # phi is angle at base, theta is curvature
+        0, 0, 0, 0
+    ])
     K = arm.K
 
     q_from_x = x[:2*num_segments]
@@ -189,6 +193,12 @@ def pcc_dynamics(arm,q, q_dot, tips, jacobians,water=False):
     G_term= G_func(q0[:2*num_segments])
     D_term= D_func(q0[:2*num_segments], q0[2*num_segments:]) @ q_dot_from_x
     K_term= K @ q_from_x
+    print("M_term:", M_term)
+    print("C_term:", C_term)
+    print("G_term:", G_term)
+    print("D_term:", D_func(q0[:2*num_segments], q0[2*num_segments:]))
+    print("K_term:", K)
+    raise Exception("Debugging pcc_dynamics")
   
     J_tendon = ca.SX.zeros((3*num_segments, 2*num_segments))
     u_tendon = ca.SX.sym('u', 3*num_segments)

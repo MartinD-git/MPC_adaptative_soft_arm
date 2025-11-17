@@ -95,7 +95,7 @@ def history_plot(pcc_arm,u_bound,xyz_traj=None):
 
     # add target trajectory if provided
     if xyz_traj is not None:
-        xyz_traj = np.vstack((xyz_traj, xyz_traj[0])) #loop back to start
+        #xyz_traj = np.vstack((xyz_traj, xyz_traj[0])) #loop back to start
         ax.plot(xyz_traj[:,0], xyz_traj[:,1], xyz_traj[:,2],'k--', label='Target trajectory')
         ax.legend()
 
@@ -104,7 +104,7 @@ def history_plot(pcc_arm,u_bound,xyz_traj=None):
         fig, 
         func=update_line, 
         frames=len(history), 
-        fargs=(points1, points2, lines, tip_line[0], tip_trajectory, tip_trajectory,ax,pcc_arm.dt),
+        fargs=(points1, points2, lines, tip_line[0], tip_trajectory,ax,pcc_arm.dt),
         interval=pcc_arm.dt * 1000
     )
 
