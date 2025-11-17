@@ -27,7 +27,7 @@ rho_liquid = rho_water  # density of the surrounding fluid
 
 
 horizon_time = 2  #seconds
-dt = 0.1  #seconds
+dt = 0.05  #seconds
 
 num_segments = 2
 
@@ -76,6 +76,6 @@ ARM_PARAMETERS = {
     "rho_liquid": rho_liquid,
     "r_d": r_d,
 }
-print("MPC_PARAMETERS:", MPC_PARAMETERS)
+'''print("MPC_PARAMETERS:", MPC_PARAMETERS)
 print("ARM_PARAMETERS:", ARM_PARAMETERS)
-print("SIM_PARAMETERS:", SIM_PARAMETERS)
+print("SIM_PARAMETERS:", SIM_PARAMETERS)'''

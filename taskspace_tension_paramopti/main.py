@@ -119,19 +119,22 @@ def main():
                     instant_error_list.append(np.linalg.norm(pcc_arm.history[:, pcc_arm.history_index-1] - pcc_arm.history_pred[:, pcc_arm.history_index-2]))
                     if error_list[-1] > error_list[-2]+0.1:
                         increased = False
-                    if ((pcc_arm.history_index > 40*5 + opti_index[-1]) and (error_list[-1] > error_list[-2]-0.001)):
+                    if ((pcc_arm.history_index > 20 + opti_index[-1]) and (error_list[-1] > error_list[-2]-0.001)):
                         constant = True
                     
                     if (error > 0.05) and (increased or constant):  # only optimize every 50 steps if error is significant and increasing
                         opti_index.append(pcc_arm.history_index)
+                        
                         increased = False
                         constant = False
                         solution = param_solver(x0=pcc_arm.history_adaptive_param[:,pcc_arm.history_index-1],p=adaptative_solver_parameters,lbx=lb_adaptive,ubx=ub_adaptive)
                         param_sol = np.array(solution['x']).flatten()
+                        pcc_arm.history_adaptive_param[:, pcc_arm.history_index] = param_sol
                         prev_mean = 3
-                        gamma = np.power(0.7, np.arange(prev_mean+1))
+                        prev_mean = min(prev_mean, len(opti_index)-1)
+                        gamma = np.power(0.7, np.arange(prev_mean))
                         gamma = gamma / np.sum(gamma)
-                        param_sol = np.sum(gamma * np.hstack((param_sol.reshape(-1,1), pcc_arm.history_adaptive_param[:, pcc_arm.history_index-prev_mean:pcc_arm.history_index])), axis=1)
+                        param_sol = np.sum(gamma * pcc_arm.history_adaptive_param[:, opti_index[-prev_mean:]], axis=1)
                         #objective_val = solution['f']
                         '''with np.printoptions(formatter={'float_kind': lambda x: format(x, '.2e')}):
                             print(-np.array(lb_adaptive_abs).flatten())
@@ -189,10 +192,11 @@ def create_adaptative_parameters_solver(arm,N):
     u_history = p[4*arm.num_segments*(N+1):-arm.num_adaptive_params,:].reshape((3*arm.num_segments,N+1))
 
     cost=0
+    weights = ca.diag([1]*4 + [1]*4)  #weight more the curvature states
     for i in range(N):
         p_global = ca.vertcat(state_history[:,-(i+2)], p_adaptative)
         q_pred = arm.integrator(x0=state_history[:,-(i+2)], u=u_history[:,-(i+2)], p_global=p_global)['xf']
-        cost += ca.sumsqr(q_pred - state_history[:,-(i+1)])
+        cost += ca.sumsqr(weights @ (q_pred - state_history[:,-(i+1)]))  #prediction error
     #weights_reg = ca.diag([1e-2]*2+[10]*2)
     #weights_reg = ca.diag([10]*2)
     #cost+= ca.sumsqr(weights_reg @ p_adaptative)  #regularization term to avoid too large parameters
