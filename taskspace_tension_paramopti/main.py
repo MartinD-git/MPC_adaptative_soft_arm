@@ -60,7 +60,8 @@ def main():
 
     param_solver, _ = create_adaptative_parameters_solver(pcc_arm, MPC_PARAMETERS['N_p_adaptative'])
     #bounds:
-    lb_adaptive_abs = ca.vertcat(-0.8*pcc_arm.d_eq[0], -0.8*pcc_arm.d_eq[1], -0.5*pcc_arm.K[1,1], -0.5*pcc_arm.K[3,3])
+    #lb_adaptive_abs = ca.vertcat(-0.8*pcc_arm.d_eq[0], -0.8*pcc_arm.d_eq[1], -0.5*pcc_arm.K[1,1], -0.5*pcc_arm.K[3,3])
+    lb_adaptive_abs = ca.vertcat( -0.9*pcc_arm.K[1,1], -0.9*pcc_arm.K[3,3])
     #ub_adaptive = [1e6]*pcc_arm.num_adaptive_params
     error_list = []
     instant_error_list = []
@@ -100,7 +101,7 @@ def main():
 #######################################
 
 # Update params
-                if pcc_arm.history_index > (MPC_PARAMETERS['N_p_adaptative']+5):
+                if pcc_arm.history_index > (MPC_PARAMETERS['N_p_adaptative']+100):
                     start_idx = pcc_arm.history_index - MPC_PARAMETERS['N_p_adaptative']
                     end_idx = pcc_arm.history_index
 
@@ -111,23 +112,23 @@ def main():
                     adaptative_solver_parameters = np.vstack((adaptative_solver_parameters, pcc_arm.history_adaptive_param[:,pcc_arm.history_index-1].reshape(-1,1)))
                     error = np.mean(np.round(np.square(np.linalg.norm(pcc_arm.history[:, t-MPC_PARAMETERS['N_p_adaptative']:t-1] - pcc_arm.history_pred[:, t-MPC_PARAMETERS['N_p_adaptative']-1:t-2], axis=0)), decimals=4))
                     # *0.8 creates an error because 0 at the beginning thus both bounds are at 0
-                    bound_coef = [10, 10, 10, 10]  # how much of the abs value of the param to allow to change
+                    bound_coef = [0.8, 0.8]  # how much of the abs value of the param to allow to change
                     lb_adaptive = np.maximum(np.array(pcc_arm.history_adaptive_param[:,pcc_arm.history_index-1]+bound_coef*lb_adaptive_abs), np.array(lb_adaptive_abs))
                     ub_adaptive = pcc_arm.history_adaptive_param[:,pcc_arm.history_index-1]-bound_coef*lb_adaptive_abs
                     error_list.append(error)
                     instant_error_list.append(np.linalg.norm(pcc_arm.history[:, pcc_arm.history_index-1] - pcc_arm.history_pred[:, pcc_arm.history_index-2]))
                     if error_list[-1] > error_list[-2]+0.1:
-                        increased = True
-                    if ((pcc_arm.history_index > 150 + opti_index[-1]) and (error_list[-1] > error_list[-2]-0.001)):
+                        increased = False
+                    if ((pcc_arm.history_index > 40*5 + opti_index[-1]) and (error_list[-1] > error_list[-2]-0.001)):
                         constant = True
                     
-                    if (error > 0.05) and ((pcc_arm.history_index > 10 + opti_index[-1]) and (increased or constant)):  # only optimize every 50 steps if error is significant and increasing
+                    if (error > 0.05) and (increased or constant):  # only optimize every 50 steps if error is significant and increasing
                         opti_index.append(pcc_arm.history_index)
                         increased = False
                         constant = False
                         solution = param_solver(x0=pcc_arm.history_adaptive_param[:,pcc_arm.history_index-1],p=adaptative_solver_parameters,lbx=lb_adaptive,ubx=ub_adaptive)
                         param_sol = np.array(solution['x']).flatten()
-                        prev_mean = 5
+                        prev_mean = 3
                         gamma = np.power(0.7, np.arange(prev_mean+1))
                         gamma = gamma / np.sum(gamma)
                         param_sol = np.sum(gamma * np.hstack((param_sol.reshape(-1,1), pcc_arm.history_adaptive_param[:, pcc_arm.history_index-prev_mean:pcc_arm.history_index])), axis=1)
@@ -162,7 +163,7 @@ def main():
                 break
 
     print("--- %s seconds ---" % (time.time() - start_time))
-    save = True
+    save = False
     out_dir = "csv_and_plots_adapt/"
     plt.figure()
     plt.plot(np.arange(len(error_list))*pcc_arm.dt,error_list, label='Mean squared error over last steps')
@@ -186,15 +187,15 @@ def create_adaptative_parameters_solver(arm,N):
     
     state_history = p[:4*arm.num_segments*(N+1)].reshape((4*arm.num_segments,N+1))
     u_history = p[4*arm.num_segments*(N+1):-arm.num_adaptive_params,:].reshape((3*arm.num_segments,N+1))
-    prev_p_adaptative = p[-arm.num_adaptive_params:]
 
     cost=0
     for i in range(N):
         p_global = ca.vertcat(state_history[:,-(i+2)], p_adaptative)
         q_pred = arm.integrator(x0=state_history[:,-(i+2)], u=u_history[:,-(i+2)], p_global=p_global)['xf']
         cost += ca.sumsqr(q_pred - state_history[:,-(i+1)])
-    weights_reg = ca.diag([1e-2]*2+[10]*2)
-    cost+= ca.sumsqr(weights_reg @ p_adaptative)  #regularization term to avoid too large parameters
+    #weights_reg = ca.diag([1e-2]*2+[10]*2)
+    #weights_reg = ca.diag([10]*2)
+    #cost+= ca.sumsqr(weights_reg @ p_adaptative)  #regularization term to avoid too large parameters
     #cost+= ca.sumsqr(30*(p_adaptative - prev_p_adaptative))  #smoothness term to avoid too large jumps in parameters
 
     nlp = {'x': p_adaptative, 'p': p, 'f': cost}
@@ -202,7 +203,7 @@ def create_adaptative_parameters_solver(arm,N):
     opts = {
         'ipopt.warm_start_init_point': 'yes',
         'ipopt.acceptable_iter': 1,
-        'ipopt.max_cpu_time': 1.5,
+        'ipopt.max_cpu_time': 5,
         'ipopt.print_level': 0, 'print_time': 0,
     }
     

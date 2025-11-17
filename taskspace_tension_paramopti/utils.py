@@ -126,10 +126,10 @@ def pcc_dynamics(arm,q, q_dot, tips, jacobians,water=False):
     d_eq = arm.d_eq
 
     p_adaptative = ca.SX.sym('p_adaptative', arm.num_adaptive_params, 1)
-    d_eq += p_adaptative[0:2]  # damping adaptative
+    #d_eq += p_adaptative[0:2]  # damping adaptative
     #K = arm.K + ca.diag(p_adaptative[2:])
 
-    K = arm.K + ca.diag(ca.vertcat(0, p_adaptative[2], 0, p_adaptative[3]))
+    K = arm.K + ca.diag(ca.vertcat(0, p_adaptative[0], 0, p_adaptative[1]))
 
     J = ca.vertcat(*jacobians)
 

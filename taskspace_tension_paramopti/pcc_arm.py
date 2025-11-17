@@ -28,7 +28,7 @@ class PCCSoftArm:
         self.history_u_tendon = np.zeros((3*self.num_segments, history_size))
         self.history_index = 0
         self.history_pred = np.zeros((4*self.num_segments, history_size))
-        self.num_adaptive_params =  self.num_segments + self.num_segments  # damping per segment + bending stiffness per segment
+        self.num_adaptive_params =  self.num_segments  # damping per segment + bending stiffness per segment
         self.history_adaptive_param = np.zeros((self.num_adaptive_params, history_size+1))
         
 
