@@ -1,0 +1,215 @@
+
+
+'''
+
+torque(N) to current (A):
+a = (1.68-0.18)/(2.8-0.07) = 0.54945054945
+b = 0.14153846153
+
+I = a*tau + b = a*r_d*tension + b
+
+control with position first and print the actual current to see if it matches simulation
+id 5 is zero
+
+radisu pulley = 6mm
+measure length should be 3*105
+d = 40 mm
+tendon radius is 36mm
+
+major changes: changed ocp param to merit back tracking and works for dt=0.1 and is more robust!!
+add other options to the solver
+added constraint to avoid too much adaptative change
+opti only on damping and bending stiffness not z stiffness
+tried different rajectory to better see the difference with water
+
+'''
+
+
+import traceback
+import numpy as np
+from tqdm import tqdm
+import time
+from acados_utils import setup_ocp_solver, mpc_step_acados
+from pcc_arm import PCCSoftArm
+from parameters import ARM_PARAMETERS, MPC_PARAMETERS, SIM_PARAMETERS
+from visualisation import history_plot
+from utils import generate_total_trajectory
+import casadi as ca
+import matplotlib.pyplot as plt
+
+
+def main():
+    start_time = time.time()
+    num_iter = int(SIM_PARAMETERS['T']/SIM_PARAMETERS['dt'])
+    N=MPC_PARAMETERS['N']
+
+    pcc_arm = PCCSoftArm(ARM_PARAMETERS,SIM_PARAMETERS['dt'],num_iter)
+    pcc_arm.true_current_state=SIM_PARAMETERS['x0']
+    pcc_arm.current_state=pcc_arm.true_current_state + pcc_arm.meas_error()
+
+    #generate circular trajectory (N,4*num_segments)
+    print("Generating trajectory")
+    q_tot_traj, xyz_circular_traj, dottet_plotting_traj = generate_total_trajectory(pcc_arm,SIM_PARAMETERS,N,stabilizing_time=0, loop_time=SIM_PARAMETERS['T_loop'])
+    print("Trajectory is generated")
+    
+    # Create Acados OCP solver
+    Tf = N * SIM_PARAMETERS['dt']
+    ocp_solver = setup_ocp_solver(pcc_arm, MPC_PARAMETERS, N, Tf)
+
+    param_solver, _ = create_adaptative_parameters_solver(pcc_arm, MPC_PARAMETERS['N_p_adaptative'])
+    #bounds:
+    #lb_adaptive_abs = ca.vertcat(-0.8*pcc_arm.d_eq[0], -0.8*pcc_arm.d_eq[1], -0.5*pcc_arm.K[1,1], -0.5*pcc_arm.K[3,3])
+    lb_adaptive_abs = ca.vertcat( -0.9*pcc_arm.K[1,1], -0.9*pcc_arm.K[3,3])
+    #ub_adaptive = [1e6]*pcc_arm.num_adaptive_params
+    error_list = []
+    instant_error_list = []
+    opti_index = [0]
+
+    increased = False
+    constant = False
+
+    # Simu loop
+    with tqdm(total=num_iter*SIM_PARAMETERS['dt'], desc="MPC loop", bar_format='{l_bar}{bar}| {n:.2f}/{total_fmt} [{elapsed}<{remaining}, {postfix}]') as pbar:
+        for t in range(num_iter):
+            try:
+                # MPC
+                loop_time_0 = time.time()
+
+                #q_goal_value = q_tot_traj[t:t+N+1,:].T
+                #q_goal_value = np.vstack((xyz_circular_traj[t:t+N+1,:].T,q_tot_traj[t:t+N+1,2*pcc_arm.num_segments:].T))  # shifted by one time step
+                q_goal_value = np.vstack((xyz_circular_traj[t:t+N+1,:].T,np.zeros((2*pcc_arm.num_segments,N+1))))  # zero velocities
+                if t == 0:
+                    adapt_param = pcc_arm.history_adaptive_param[:,0]
+                    u_prev = pcc_arm.history_u_tendon[:, 0]
+                else:
+                    adapt_param = pcc_arm.history_adaptive_param[:,pcc_arm.history_index-1]
+                    u_prev = pcc_arm.history_u_tendon[:, pcc_arm.history_index-1]
+                
+                u0, x1 = mpc_step_acados(ocp_solver, pcc_arm.current_state, q_goal_value, adapt_param, N, u_prev, MPC_PARAMETERS['u_bound'])
+
+                loop_time_1 = time.time()
+                pcc_arm.log_history(np.zeros(2*pcc_arm.num_segments), q_goal_value[:,0],u0, x1)
+
+                # apply the first control input to the real system
+                pcc_arm.next_step(u0)
+
+                pbar.update(SIM_PARAMETERS['dt'])
+
+                loop_time_2 = time.time()
+#######################################
+
+# Update params
+                if pcc_arm.history_index > (MPC_PARAMETERS['N_p_adaptative']+100):
+                    start_idx = pcc_arm.history_index - MPC_PARAMETERS['N_p_adaptative']-1
+                    end_idx = pcc_arm.history_index-1
+
+                    states = np.hstack((pcc_arm.history[:,start_idx:end_idx],pcc_arm.true_current_state.reshape(-1,1))) # add current state because it has not been logged yet
+                    inputs = np.hstack((pcc_arm.history_u_tendon[:,start_idx:end_idx],np.zeros((3*pcc_arm.num_segments,1)))) #add zeros that will never be accessed, just for the vstack
+                    adaptative_solver_parameters = np.vstack((states, inputs)) 
+                    adaptative_solver_parameters = adaptative_solver_parameters.reshape(-1,1)
+                    adaptative_solver_parameters = np.vstack((adaptative_solver_parameters, pcc_arm.history_adaptive_param[:,pcc_arm.history_index-1].reshape(-1,1)))
+                    error = np.mean(np.round(np.square(np.linalg.norm(pcc_arm.history[:, t-MPC_PARAMETERS['N_p_adaptative']:t-1] - pcc_arm.history_pred[:, t-MPC_PARAMETERS['N_p_adaptative']-1:t-2], axis=0)), decimals=4))
+                    # *0.8 creates an error because 0 at the beginning thus both bounds are at 0
+                    bound_coef = [1000, 1000]  # how much of the abs value of the param to allow to change
+                    lb_adaptive = np.maximum(np.array(pcc_arm.history_adaptive_param[:,pcc_arm.history_index-1]+bound_coef*lb_adaptive_abs), np.array(lb_adaptive_abs))
+                    ub_adaptive = pcc_arm.history_adaptive_param[:,pcc_arm.history_index-1]-bound_coef*lb_adaptive_abs
+                    error_list.append(error)
+                    instant_error_list.append(np.linalg.norm(pcc_arm.history[:, pcc_arm.history_index-1] - pcc_arm.history_pred[:, pcc_arm.history_index-2]))
+                    if error_list[-1] > error_list[-2]+0.1:
+                        increased = False
+                    if ((pcc_arm.history_index > 20 + opti_index[-1]) and (error_list[-1] > error_list[-2]-0.001)):
+                        constant = True
+                    
+                    if (error > 1e-4) and (increased or constant) :  # only optimize every 50 steps if error is significant and increasing
+                        opti_index.append(pcc_arm.history_index)
+                        
+                        increased = False
+                        constant = False
+                        solution = param_solver(x0=pcc_arm.history_adaptive_param[:,pcc_arm.history_index-1],p=adaptative_solver_parameters,lbx=lb_adaptive,ubx=ub_adaptive)
+                        param_sol = np.array(solution['x']).flatten()
+                        pcc_arm.history_adaptive_param[:, pcc_arm.history_index] = param_sol
+                        prev_mean = 3
+                        prev_mean = min(prev_mean, len(opti_index)-1)
+                        gamma = np.power(0.7, np.arange(prev_mean))
+                        gamma = gamma / np.sum(gamma)
+                        param_sol = np.sum(gamma * pcc_arm.history_adaptive_param[:, opti_index[-prev_mean:]], axis=1)
+                        #objective_val = solution['f']
+                        '''with np.printoptions(formatter={'float_kind': lambda x: format(x, '.2e')}):
+                            print(-np.array(lb_adaptive_abs).flatten())
+                            print(param_sol.flatten())'''
+                    else:
+                        param_sol = pcc_arm.history_adaptive_param[:,pcc_arm.history_index-1]
+
+                else:
+                    param_sol = np.zeros(pcc_arm.num_adaptive_params)
+                    error_list.append(0)
+                    instant_error_list.append(0)
+                pcc_arm.history_adaptive_param[:, pcc_arm.history_index] = param_sol
+                loop_time_3 = time.time()
+
+                # Timing
+                mpc_time = (loop_time_1 - loop_time_0) * 1000
+                fk_time = (loop_time_2 - loop_time_1) * 1000
+                adapt_time = (loop_time_3 - loop_time_2) * 1000
+                total_time = (loop_time_3 - loop_time_0) * 1000
+
+                # Set the postfix with the calculated times
+                pbar.set_postfix(MPC=f'{mpc_time:.2f}ms', FK=f'{fk_time:.2f}ms', Adapt=f'{adapt_time:.2f}ms', Total=f'{total_time:.2f}ms', refresh=True)
+            except:
+                print("status:", ocp_solver.get_status())
+                print("alpha:", ocp_solver.get_stats('alpha'))
+                print("qp_iter:", ocp_solver.get_stats('qp_iter'))
+                print("residuals:", ocp_solver.get_residuals())  
+                traceback.print_exc()
+                break
+
+    print("--- %s seconds ---" % (time.time() - start_time))
+    save = False
+    out_dir = "csv_and_plots_adapt/"
+    plt.figure()
+    plt.plot(np.arange(len(error_list))*pcc_arm.dt,error_list, label='Mean squared error over last steps')
+    plt.plot(np.arange(len(instant_error_list))*pcc_arm.dt,instant_error_list, label='Instant error')
+    plt.legend()
+    for i in range(1,len(opti_index)):
+        plt.axvline(x=opti_index[i]*pcc_arm.dt,color='r',linestyle='--',alpha=0.5)
+    plt.title("Error over time")
+    plt.xlabel("Time step")
+    plt.ylabel("Error")
+    if save:
+        plt.savefig(out_dir + "error_over_time.png", dpi=200)
+    history_plot(pcc_arm,MPC_PARAMETERS['u_bound'],dottet_plotting_traj, save=save)
+
+def create_adaptative_parameters_solver(arm,N):
+
+    p_adaptative = ca.MX.sym('p_adaptative', arm.num_adaptive_params)
+    p= ca.MX.sym('p', (4*arm.num_segments + 3*arm.num_segments)*(N+1)+arm.num_adaptive_params) #state, control, prev adaptative params
+    
+    state_history = p[:4*arm.num_segments*(N+1)].reshape((4*arm.num_segments,N+1))
+    u_history = p[4*arm.num_segments*(N+1):-arm.num_adaptive_params,:].reshape((3*arm.num_segments,N+1))
+
+    cost=0
+    weights = ca.diag([1]*4 + [1]*4)  #weight more the curvature states
+    for i in range(N):
+        p_global = ca.vertcat(state_history[:,-(i+2)], p_adaptative)
+        q_pred = arm.integrator(x0=state_history[:,-(i+2)], u=u_history[:,-(i+2)], p_global=p_global)['xf']
+        cost += ca.sumsqr(weights @ (q_pred - state_history[:,-(i+1)]))  #prediction error
+    #weights_reg = ca.diag([1e-2]*2+[10]*2)
+    weights_reg = ca.diag([0.01]*2)
+    cost+= ca.sumsqr(weights_reg @ p_adaptative)  #regularization term to avoid too large parameters
+    #cost+= ca.sumsqr(30*(p_adaptative - prev_p_adaptative))  #smoothness term to avoid too large jumps in parameters
+
+    nlp = {'x': p_adaptative, 'p': p, 'f': cost}
+
+    opts = {
+        'ipopt.warm_start_init_point': 'yes',
+        'ipopt.acceptable_iter': 1,
+        #'ipopt.max_cpu_time': 5,
+        #'ipopt.print_level': 0, 'print_time': 0,
+    }
+    
+    solver = ca.nlpsol('adaptative_solver', 'ipopt', nlp, opts)
+
+    return solver, ca.Function('error_func', [p_adaptative, p], [cost])
+
+if __name__ == "__main__":
+    main()
