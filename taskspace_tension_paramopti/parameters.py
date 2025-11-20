@@ -27,7 +27,7 @@ rho_air = 1.225 #density of air
 rho_liquid = rho_water  # density of the surrounding fluid
 
 
-horizon_time = 4  #seconds
+horizon_time = 3  #seconds
 dt = 0.1  #seconds
 
 num_segments = 2
@@ -37,8 +37,8 @@ MPC_PARAMETERS = {
     "Q":  np.diag([1e2]*3 + [1]*2*num_segments),
     "Qf": np.diag([1e2]*3 + [1]*2*num_segments),  # stronger terminal weight helps convergence
     "R": 1e-5*np.eye(3*num_segments),
-    "u_bound": [2,30],#[0,tension_bound],
-    "N_p_adaptative": 20, #number of previous steps to consider for parameter estimation
+    "u_bound": [2,40],#[0,tension_bound],
+    "N_p_adaptative": 120, #number of previous steps to consider for parameter estimation
 }
 
 SIM_PARAMETERS = {

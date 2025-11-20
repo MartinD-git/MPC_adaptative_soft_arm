@@ -42,9 +42,9 @@ def setup_ocp_solver(pcc_arm, MPC_PARAMETERS, N, Tf):
     ocp.solver_options.nlp_solver_max_iter = 500
 
     # ?? works better with these globalization settings if its breaking
-    #ocp.solver_options.globalization_fixed_step_length = 0.3 
-    #ocp.solver_options.globalization_full_step_dual = 1        # keep duals stable when primals take smaller steps
-    ocp.solver_options.globalization = 'MERIT_BACKTRACKING'
+    ocp.solver_options.globalization_fixed_step_length = 0.3 
+    ocp.solver_options.globalization_full_step_dual = 1        # keep duals stable when primals take smaller steps
+    #ocp.solver_options.globalization = 'MERIT_BACKTRACKING'
     ocp.solver_options.regularize_method = 'MIRROR'
     ocp.solver_options.levenberg_marquardt = 1e-1
 

@@ -7,9 +7,9 @@ from matplotlib.colors import Normalize
 import matplotlib.cm as cm
 
 out_dir = "csv_and_plots_adapt/"
-colored_line = False
+colored_line = True
 
-def history_plot(pcc_arm,u_bound,xyz_traj=None, save=False):
+def history_plot(pcc_arm,u_bound,xyz_traj=None, save=False, opti_index=None):
     history = pcc_arm.history[:, :pcc_arm.history_index].T
     history_d = pcc_arm.history_d[:, :pcc_arm.history_index].T
     history_u = pcc_arm.history_u[:, :pcc_arm.history_index].T
@@ -58,7 +58,7 @@ def history_plot(pcc_arm,u_bound,xyz_traj=None, save=False):
     color = ['b', 'r', 'm']
     for i in range(pcc_arm.num_segments):
         for k in range(3):
-            axs[i].plot(time, history_u_tendon[:,i+k], label=labels[k], linestyle='-', color=color[k])
+            axs[i].plot(time, history_u_tendon[:,2*i+k], label=labels[k], linestyle='-', color=color[k])
         axs[i].set_title(f'Segment {i+1}')
         axs[i].set_xlabel('Time [s]')
         axs[i].set_ylabel('N')
@@ -71,11 +71,12 @@ def history_plot(pcc_arm,u_bound,xyz_traj=None, save=False):
 
     #error plot
     #initial_param = np.concatenate([np.array(pcc_arm.d_eq), [pcc_arm.K[1,1]], [pcc_arm.K[3,3]]])  # damping per segment + bending stiffness per segment
-    initial_param = np.concatenate([[pcc_arm.K[1,1]], [pcc_arm.K[3,3]]])
-    fig, axes = plt.subplots(2, 1, figsize=(12, 10), sharex=True)
+    initial_param = np.array([pcc_arm.m, pcc_arm.d_eq[0], pcc_arm.d_eq[1], pcc_arm.K[1,1], pcc_arm.K[3,3]])
+
+    fig, axes = plt.subplots(3, 2, figsize=(12, 10), sharex=True)
     axes = axes.ravel()
 
-    for i in range(2):
+    for i in range(5):
         ax = axes[i]
         ax.plot(time, history_param[:, i], label=f'Param {i+1}')
         ax.axhline(initial_param[i], linestyle='--', label='Initial Value')  # horizontal reference line
@@ -108,20 +109,26 @@ def history_plot(pcc_arm,u_bound,xyz_traj=None, save=False):
     tip_trajectory = np.array(points2)[:,:,-1] # (N, 3)
     if colored_line:
 
-        # Build segments: shape (N-1, 2, 3)
-        tip_segments = np.stack(
-            [tip_trajectory[:-1], tip_trajectory[1:]],
-            axis=1
-        )
+        p_start = tip_trajectory[:-1] # Points 0 to N-1
+        p_end = tip_trajectory[1:]    # Points 1 to N
+        # stack along axis 1 to get shape (N-1, 2, 3)
+        tip_segments = np.stack((p_start, p_end), axis=1)
 
-        # Normalize "time" from 0 to 1
-        N_seg = tip_segments.shape[0]
-        t_vals = np.linspace(0.0, 1.0, N_seg)
-
-        # Colormap setup
-        cmap = cm.get_cmap('inferno')     # pick any colormap
-        norm = Normalize(vmin=0.0, vmax=1.0)
-        colors = cmap(norm(t_vals))
+        segment_colors = np.zeros((len(tip_segments), 4))
+        opti_index.append(len(tip_trajectory))
+        
+        # Discrete colormap
+        cmap = plt.cm.jet(np.linspace(0, 1, len(opti_index) - 1))
+        
+        # Fill colors per interval
+        for i in range(len(opti_index) - 1):
+            start_idx = opti_index[i]
+            end_idx = opti_index[i+1]
+            
+            color = cmap[i]
+            safe_end = min(end_idx, len(tip_segments))
+            if start_idx < len(tip_segments):
+                segment_colors[start_idx:safe_end] = color
 
     # Attaching 3D axis to the figure
     fig = plt.figure()
@@ -134,10 +141,11 @@ def history_plot(pcc_arm,u_bound,xyz_traj=None, save=False):
     
     # Create an *empty* 3D collection at the start
     if colored_line:
+        # Initialize Collection with first segment
         tip_line_collection = Line3DCollection(
-            tip_segments[:1],      # first segment (shape: (1, 2, 3))
-            colors=colors[:1],
-            linewidth=1
+            tip_segments[:1],
+            colors=segment_colors[:1],
+            linewidth=2
         )
         ax.add_collection3d(tip_line_collection)
     else:
@@ -159,7 +167,7 @@ def history_plot(pcc_arm,u_bound,xyz_traj=None, save=False):
 
     # Creating the Animation object
     if colored_line:
-        fargs = (points1, points2, lines, None, None, tip_line_collection, tip_segments, colors, ax, pcc_arm.dt)
+        fargs = (points1, points2, lines, None, None, tip_line_collection, tip_segments, segment_colors, ax, pcc_arm.dt)
     else:
         fargs = (points1, points2, lines, tip_line[0], tip_trajectory,None, None, None, ax,pcc_arm.dt)
     ani = animation.FuncAnimation(
@@ -209,13 +217,13 @@ def update_line(num, points1, points2, lines,
 
     # Update tip trajectory with colormap along time
     if colored_line:
-        # use segments up to "num" (at least 1 segment)
-        k = max(1, min(num, tip_segments.shape[0]))
-        segs = tip_segments[:k]
-        cols = tip_colors[:k]
 
-        tip_line_collection.set_segments(segs)
-        tip_line_collection.set_color(cols)
+        current_idx = max(1, min(num, len(tip_segments)))
+        
+        tip_line_collection.set_segments(tip_segments[:current_idx])
+        tip_line_collection.set_color(tip_colors[:current_idx])
+        tip_line_collection.set_alpha(0.7)
+        
         # Return all artists that change
         return lines + ([tip_line_collection] if tip_line_collection is not None else [])
     else:

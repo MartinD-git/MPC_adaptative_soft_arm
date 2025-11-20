@@ -114,7 +114,7 @@ def shape_function(q, tips,s):
 
 def pcc_dynamics(arm,q, q_dot, tips, jacobians,water=False):
 
-    m = arm.rho * np.pi*(arm.r_o**2 - arm.r_i**2) * arm.L_segs[0] # mass of each segment
+    m = arm.m
 
 
     num_segments = arm.num_segments
@@ -126,10 +126,8 @@ def pcc_dynamics(arm,q, q_dot, tips, jacobians,water=False):
     d_eq = arm.d_eq
 
     p_adaptative = ca.SX.sym('p_adaptative', arm.num_adaptive_params, 1)
-    #d_eq += p_adaptative[0:2]  # damping adaptative
-    #K = arm.K + ca.diag(p_adaptative[2:])
-
-    K = arm.K + ca.diag(ca.vertcat(0, p_adaptative[0], 0, p_adaptative[1]))
+    d_eq += p_adaptative[1:3]  # damping adaptative
+    K = arm.K + ca.diag(ca.vertcat(0, p_adaptative[3], 0, p_adaptative[4]))
 
     J = ca.vertcat(*jacobians)
 
@@ -150,8 +148,8 @@ def pcc_dynamics(arm,q, q_dot, tips, jacobians,water=False):
     
     D_integrand = (jacobians[0].T @ jacobians[0]) * d_eq[0]+(jacobians[1].T @ jacobians[1]) * d_eq[1] + D_fluid
 
-    G_integrand = (m_buoy-m) * sum(ca.dot(g_vec, tip) for tip in tips)
-    M_integrand = (m+m_displaced) * (J.T @ J)
+    G_integrand = (m_buoy-m+p_adaptative[0]) * sum(ca.dot(g_vec, tip) for tip in tips)
+    M_integrand = (m+m_displaced+p_adaptative[0]) * (J.T @ J)
 
 
     M = gauss_legendre(M, M_integrand, s)
@@ -161,20 +159,20 @@ def pcc_dynamics(arm,q, q_dot, tips, jacobians,water=False):
 
     D = gauss_legendre(D, D_integrand, s) +1e-5* np.eye(2*num_segments)
 
-    M_func = ca.Function('M_func', [q], [M])
-    G_func = ca.Function('G_func', [q], [G])
-    D_func = ca.Function('D_func', [q,q_dot, p_adaptative[0:2]], [D])
+    M_func = ca.Function('M_func', [q, p_adaptative[0]], [M])
+    G_func = ca.Function('G_func', [q, p_adaptative[0]], [G])
+    D_func = ca.Function('D_func', [q,q_dot, p_adaptative[1:3]], [D])
     arm.M_func = M_func
 
     # Coriolis C
-    M_q = M_func(q)
+    M_q = M_func(q, p_adaptative[0])
     M_dot_q_dot = ca.jtimes(M_q, q, q_dot) # This calculates (dM/dq)*q_dot
 
     KE = 0.5 * q_dot.T @ M_q @ q_dot
     KE_grad = ca.gradient(KE, q)
 
     c_vec = M_dot_q_dot @ q_dot - KE_grad
-    C_vec_func = ca.Function('C_vec_func', [q, q_dot], [c_vec])
+    C_vec_func = ca.Function('C_vec_func', [q, q_dot, p_adaptative[0]], [c_vec])
 
     x = ca.SX.sym('x', 4*num_segments)
     u = ca.SX.sym('u', 2*num_segments)
@@ -189,10 +187,10 @@ def pcc_dynamics(arm,q, q_dot, tips, jacobians,water=False):
     G_term= G_func(q_from_x)
     D_term= D_func(q_from_x, q_dot_from_x) @ q_dot_from_x
     K_term= K @ q_from_x'''
-    M_term= M_func(q0[:2*num_segments])+1e-6* ca.DM.eye(2*num_segments)
-    C_term= C_vec_func(q0[:2*num_segments], q0[2*num_segments:])
-    G_term= G_func(q0[:2*num_segments])
-    D_term= D_func(q0[:2*num_segments], q0[2*num_segments:], p_adaptative[0:2]) @ q_dot_from_x
+    M_term= M_func(q0[:2*num_segments],p_adaptative[0])+1e-6* ca.DM.eye(2*num_segments)
+    C_term= C_vec_func(q0[:2*num_segments], q0[2*num_segments:], p_adaptative[0])
+    G_term= G_func(q0[:2*num_segments], p_adaptative[0])
+    D_term= D_func(q0[:2*num_segments], q0[2*num_segments:], p_adaptative[1:3]) @ q_dot_from_x
     K_term= K @ q_from_x
   
     J_tendon = ca.SX.zeros((3*num_segments, 2*num_segments))
