@@ -234,9 +234,9 @@ def create_adaptative_parameters_solver_SQP(arm,N):
 
     # SQP
     opts = {
-        'jit': True,
-        'compiler': 'shell',
-        'jit_options': {'flags': ['-O3']}, 
+        #'jit': True,
+        #'compiler': 'shell',
+        #'jit_options': {'flags': ['-O3']}, 
         'qpsol': 'qrqp',          #QP solverqrqp, osqp, qpoases
         'qpsol_options': {'print_iter': False, 'print_header': False},
         'max_iter': 1,

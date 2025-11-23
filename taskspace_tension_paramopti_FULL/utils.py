@@ -306,15 +306,15 @@ def taskspace_to_jointspace(arm, traj_xyz, w_reg=1e-4):
     solver = ca.nlpsol('ik', 'ipopt', nlp, opts)
 
     # Prepare bounds and initial guess
-    delta = np.array([np.deg2rad(99999)]*dof)
+    #delta = np.array([np.deg2rad(99999)]*dof)
 
     Q = np.zeros((traj_xyz.shape[0], dof))
     q_prev = q0
 
     for i, p in enumerate(traj_xyz):
-        lbx = q_prev - delta
-        ubx = q_prev + delta
-        sol = solver(x0=q_prev, p=p, lbx=lbx, ubx=ubx)
+        lbx = q_prev #- delta
+        ubx = q_prev #+ delta
+        sol = solver(x0=q_prev, p=p)
         q_sol = np.array(sol['x']).flatten()
         Q[i, :] = q_sol
         q_prev = q_sol  # warm-start next point
