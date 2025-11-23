@@ -33,7 +33,7 @@ import matplotlib.pyplot as plt
 
 
 def main():
-    start_time = time.time()
+    start_time = time.perf_counter()
     num_iter = int(SIM_PARAMETERS['T']/SIM_PARAMETERS['dt'])
     N=MPC_PARAMETERS['N']
 
@@ -50,10 +50,14 @@ def main():
     Tf = N * SIM_PARAMETERS['dt']
     ocp_solver = setup_ocp_solver(pcc_arm, MPC_PARAMETERS, N, Tf)
 
-    param_solver, _ = create_adaptative_parameters_solver(pcc_arm, MPC_PARAMETERS['N_p_adaptative'])
+    #param_solver, _ = create_adaptative_parameters_solver_SQP(pcc_arm, MPC_PARAMETERS['N_p_adaptative'])
+    param_solver, _ = create_adaptative_parameters_solver_SQP(pcc_arm, MPC_PARAMETERS['N_p_adaptative'])
     #bounds:
-    lb_adaptive_abs = ca.vertcat(-0.9*pcc_arm.m,-0.9*pcc_arm.d_eq[0], -0.9*pcc_arm.d_eq[1], -0.9*pcc_arm.K[1,1], -0.9*pcc_arm.K[3,3])
+    #lb_adaptive_abs = ca.vertcat(-0.9*pcc_arm.m,-0.9*pcc_arm.d_eq[0], -0.9*pcc_arm.d_eq[1], -0.9*pcc_arm.K[1,1], -0.9*pcc_arm.K[3,3])
+    lb_adaptive = ca.vertcat(-0.9*pcc_arm.m,-0.9*pcc_arm.d_eq[0], -0.9*pcc_arm.d_eq[1], -0.9*pcc_arm.K[1,1], -0.9*pcc_arm.K[3,3])
+    ub_adaptive = [1e6]*pcc_arm.num_adaptive_params
     #lb_adaptive_abs = ca.vertcat( -0.9*pcc_arm.K[1,1], -0.9*pcc_arm.K[3,3])
+
     #ub_adaptive = [1e6]*pcc_arm.num_adaptive_params
     error_list = []
     instant_error_list = []
@@ -65,7 +69,7 @@ def main():
         for t in range(num_iter):
             try:
                 # MPC
-                loop_time_0 = time.time()
+                loop_time_0 = time.perf_counter()
 
                 #q_goal_value = q_tot_traj[t:t+N+1,:].T
                 #q_goal_value = np.vstack((xyz_circular_traj[t:t+N+1,:].T,q_tot_traj[t:t+N+1,2*pcc_arm.num_segments:].T))  # shifted by one time step
@@ -79,7 +83,7 @@ def main():
                 
                 u0, x1 = mpc_step_acados(ocp_solver, pcc_arm.current_state, q_goal_value, adapt_param, N, u_prev, MPC_PARAMETERS['u_bound'])
 
-                loop_time_1 = time.time()
+                loop_time_1 = time.perf_counter()
                 pcc_arm.log_history(np.zeros(2*pcc_arm.num_segments), q_goal_value[:,0],u0, x1)
 
                 # apply the first control input to the real system
@@ -87,7 +91,7 @@ def main():
 
                 pbar.update(SIM_PARAMETERS['dt'])
 
-                loop_time_2 = time.time()
+                loop_time_2 = time.perf_counter()
 #######################################
 
 # Update params
@@ -103,9 +107,9 @@ def main():
                     adaptative_solver_parameters = np.concatenate((p_states, p_inputs, prev_params))
                     error = np.mean(np.round(np.square(np.linalg.norm(pcc_arm.history[:, t-MPC_PARAMETERS['N_p_adaptative']:t-1] - pcc_arm.history_pred[:, t-MPC_PARAMETERS['N_p_adaptative']-1:t-2], axis=0)), decimals=4))
                     # *0.8 creates an error because 0 at the beginning thus both bounds are at 0
-                    bound_coef = [1]*pcc_arm.num_adaptive_params  # how much of the abs value of the param to allow to change
-                    lb_adaptive = np.maximum(np.array(pcc_arm.history_adaptive_param[:,pcc_arm.history_index-1]+bound_coef*lb_adaptive_abs), np.array(lb_adaptive_abs))
-                    ub_adaptive = pcc_arm.history_adaptive_param[:,pcc_arm.history_index-1]-bound_coef*lb_adaptive_abs
+                    #bound_coef = [1]*pcc_arm.num_adaptive_params  # how much of the abs value of the param to allow to change
+                    #lb_adaptive = np.maximum(np.array(pcc_arm.history_adaptive_param[:,pcc_arm.history_index-1]+bound_coef*lb_adaptive_abs), np.array(lb_adaptive_abs))
+                    #ub_adaptive = pcc_arm.history_adaptive_param[:,pcc_arm.history_index-1]-bound_coef*lb_adaptive_abs
                     error_list.append(error)
                     instant_error_list.append(np.linalg.norm(pcc_arm.history[:, pcc_arm.history_index-1] - pcc_arm.history_pred[:, pcc_arm.history_index-2]))
                     
@@ -126,7 +130,7 @@ def main():
                     error_list.append(0)
                     instant_error_list.append(0)
                 pcc_arm.history_adaptive_param[:, pcc_arm.history_index] = param_sol
-                loop_time_3 = time.time()
+                loop_time_3 = time.perf_counter()
 
                 # Timing
                 mpc_time = (loop_time_1 - loop_time_0) * 1000
@@ -145,7 +149,7 @@ def main():
                 traceback.print_exc()
                 break
 
-    print("--- %s seconds ---" % (time.time() - start_time))
+    print("--- %s seconds ---" % (time.perf_counter() - start_time))
     save = False
     out_dir = "csv_and_plots_adapt/"
     plt.figure()
@@ -177,13 +181,14 @@ def main():
 
     history_plot(pcc_arm,MPC_PARAMETERS['u_bound'],dottet_plotting_traj, save=save,opti_index=opti_index)
 
-def create_adaptative_parameters_solver(arm,N):
+def create_adaptative_parameters_solver0(arm,N):
 
     p_adaptative = ca.MX.sym('p_adaptative', arm.num_adaptive_params)
     p= ca.MX.sym('p', (4*arm.num_segments + 3*arm.num_segments)*(N+1)+arm.num_adaptive_params) #state, control, prev adaptative params
     
     state_history = p[:4*arm.num_segments*(N+1)].reshape((4*arm.num_segments,N+1))
     u_history = p[4*arm.num_segments*(N+1):-arm.num_adaptive_params,:].reshape((3*arm.num_segments,N+1))
+    p_adaptative_prev = p[-arm.num_adaptive_params:]
 
     cost=0
     weights = ca.diag([1]*4 + [1]*4)  #weight more the curvature states
@@ -191,10 +196,7 @@ def create_adaptative_parameters_solver(arm,N):
         p_global = ca.vertcat(state_history[:,-(i+2)], p_adaptative)
         q_pred = arm.integrator(x0=state_history[:,-(i+2)], u=u_history[:,-(i+2)], p_global=p_global)['xf']
         cost += ca.sumsqr(weights @ (q_pred - state_history[:,-(i+1)]))  #prediction error
-    #weights_reg = ca.diag([1e-2]*2+[10]*2)
-    #weights_reg = ca.diag([0.01]*2)
-    #cost+= ca.sumsqr(weights_reg @ p_adaptative)  #regularization term to avoid too large parameters
-    #cost+= ca.sumsqr(30*(p_adaptative - prev_p_adaptative))  #smoothness term to avoid too large jumps in parameters
+
 
     nlp = {'x': p_adaptative, 'p': p, 'f': cost}
 
@@ -209,5 +211,140 @@ def create_adaptative_parameters_solver(arm,N):
 
     return solver, ca.Function('error_func', [p_adaptative, p], [cost])
 
+def create_adaptative_parameters_solver_SQP(arm,N):
+
+    p_adaptative = ca.MX.sym('p_adaptative', arm.num_adaptive_params)
+    p= ca.MX.sym('p', (4*arm.num_segments + 3*arm.num_segments)*(N+1)+arm.num_adaptive_params) #state, control, prev adaptative params
+    
+    state_history = p[:4*arm.num_segments*(N+1)].reshape((4*arm.num_segments,N+1))
+    u_history = p[4*arm.num_segments*(N+1):-arm.num_adaptive_params,:].reshape((3*arm.num_segments,N+1))
+    p_adaptative_prev = p[-arm.num_adaptive_params:]
+
+    cost=0
+    weights = ca.diag([1]*4 + [1]*4)  #weight more the curvature states
+    for i in range(N):
+        p_global = ca.vertcat(state_history[:,-(i+2)], p_adaptative)
+        q_pred = arm.integrator(x0=state_history[:,-(i+2)], u=u_history[:,-(i+2)], p_global=p_global)['xf']
+        cost += ca.sumsqr(weights @ (q_pred - state_history[:,-(i+1)]))  #prediction error
+
+    weights_difference = 10.0
+    cost += weights_difference * ca.sumsqr(p_adaptative - p_adaptative_prev)
+
+    nlp = {'x': p_adaptative, 'p': p, 'f': cost}
+
+    # SQP
+    opts = {
+        'jit': True,
+        'compiler': 'shell',
+        'jit_options': {'flags': ['-O3']}, 
+        'qpsol': 'qrqp',          #QP solverqrqp, osqp, qpoases
+        'qpsol_options': {'print_iter': False, 'print_header': False},
+        'max_iter': 1,
+        'print_time': 0,
+        'print_header': False,
+        'print_iteration': False
+    }
+
+    solver = ca.nlpsol('adaptative_solver', 'sqpmethod', nlp, opts)
+
+    return solver, ca.Function('error_func', [p_adaptative, p], [cost])
+
 if __name__ == "__main__":
     main()
+
+
+
+
+
+
+###################################
+### Some AI code to compile only once instead of waiting each time with JIT
+# def create_adaptative_parameters_solver_SQP_cached(arm, N, lib_name='solver_sqp.so'):
+    
+#     # Options for the solver
+#     # Note: We REMOVE 'jit': True because we are handling compilation manually.
+#     opts = {
+#         'qpsol': 'qrqp',
+#         'qpsol_options': {'print_iter': False, 'print_header': False},
+#         'max_iter': 1,
+#         'print_time': 0,
+#         'print_header': False,
+#         'print_iteration': False
+#     }
+
+#     # 1. CHECK IF COMPILED LIBRARY EXISTS
+#     if os.path.exists(lib_name):
+#         print(f"Loading existing solver from {lib_name}...")
+#         # Load the compiled shared library directly
+#         solver = ca.nlpsol('adaptative_solver', 'sqpmethod', lib_name, opts)
+        
+#         # Re-create the error_func symbolically (fast) or load it if you saved it too.
+#         # Since error_func is just for evaluation (no derivatives), symbolic is usually fine.
+#         # To make this purely symbolic, we need to recreate the symbols p_adaptative and p below.
+#         # However, to avoid code duplication, we can regenerate the symbols quickly:
+#         p_adaptative = ca.MX.sym('p_adaptative', arm.num_adaptive_params)
+#         p = ca.MX.sym('p', (4*arm.num_segments + 3*arm.num_segments)*(N+1)+arm.num_adaptive_params)
+        
+#         # Note: We need the cost expression for error_func. 
+#         # If computing the symbolic cost is slow, you should also generate/compile error_func.
+#         # Assuming symbolic creation is fast enough:
+#         cost = get_symbolic_cost(arm, N, p_adaptative, p) 
+#         error_func = ca.Function('error_func', [p_adaptative, p], [cost])
+        
+#         return solver, error_func
+
+#     # 2. IF NOT EXISTS, GENERATE AND COMPILE (The heavy lifting)
+#     print("Compiling solver (this may take a minute)...")
+    
+#     p_adaptative = ca.MX.sym('p_adaptative', arm.num_adaptive_params)
+#     p = ca.MX.sym('p', (4*arm.num_segments + 3*arm.num_segments)*(N+1)+arm.num_adaptive_params)
+    
+#     # Helper to generate cost (logic moved to helper to allow reuse)
+#     cost = get_symbolic_cost(arm, N, p_adaptative, p)
+
+#     nlp = {'x': p_adaptative, 'p': p, 'f': cost}
+
+#     # Create the solver instance momentarily to generate dependencies
+#     # We give it a dummy name because the final name comes from the loaded .so
+#     temp_solver = ca.nlpsol('temp_solver', 'sqpmethod', nlp, opts)
+
+#     # Generate C code (includes the integrator and all derivatives)
+#     c_file_name = lib_name.replace('.so', '.c')
+#     temp_solver.generate_dependencies(c_file_name)
+
+#     # Compile the C code using system compiler (GCC/Clang)
+#     # -O3 for optimization, -fPIC -shared for dynamic library
+#     compile_cmd = f"gcc -fPIC -shared -O3 {c_file_name} -o {lib_name}"
+#     compile_status = os.system(compile_cmd)
+    
+#     if compile_status != 0:
+#         raise Exception("Compilation failed!")
+
+#     print("Compilation finished. Reloading...")
+
+#     # Recursively call this function to load the now-existing library
+#     return create_adaptative_parameters_solver_SQP_cached(arm, N, lib_name)
+
+
+# def get_symbolic_cost(arm, N, p_adaptative, p):
+#     """
+#     Refactored the cost generation logic out so it can be called 
+#     during both compilation and reconstruction.
+#     """
+#     state_history = p[:4*arm.num_segments*(N+1)].reshape((4*arm.num_segments,N+1))
+#     u_history = p[4*arm.num_segments*(N+1):-arm.num_adaptive_params,:].reshape((3*arm.num_segments,N+1))
+#     p_adaptative_prev = p[-arm.num_adaptive_params:]
+
+#     cost = 0
+#     weights = ca.diag([1]*4 + [1]*4) 
+    
+#     for i in range(N):
+#         p_global = ca.vertcat(state_history[:,-(i+2)], p_adaptative)
+#         # Ensure arm.integrator is available here
+#         q_pred = arm.integrator(x0=state_history[:,-(i+2)], u=u_history[:,-(i+2)], p_global=p_global)['xf']
+#         cost += ca.sumsqr(weights @ (q_pred - state_history[:,-(i+1)])) 
+
+#     weights_difference = 10.0
+#     cost += weights_difference * ca.sumsqr(p_adaptative - p_adaptative_prev)
+    
+#     return cost
