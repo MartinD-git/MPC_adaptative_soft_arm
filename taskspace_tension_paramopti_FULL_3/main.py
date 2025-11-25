@@ -79,10 +79,12 @@ def main():
                 else:
                     adapt_param = pcc_arm.history_adaptive_param[:,pcc_arm.history_index-1]
                     u_prev = pcc_arm.history_u_tendon[:, pcc_arm.history_index-1]
-                
-                u0, x1 = mpc_step_acados(ocp_solver, pcc_arm.current_state, q_goal_value, adapt_param, N, u_prev, MPC_PARAMETERS['u_bound'])
 
+                
+                #u0, x1 = mpc_step_acados(ocp_solver, pcc_arm.current_state, q_goal_value, adapt_param, N, u_prev, MPC_PARAMETERS['u_bound'])
+                x1 = pcc_arm.current_state
                 loop_time_1 = time.perf_counter()
+                u0=0 #simulate broken tendon
                 pcc_arm.log_history(np.zeros(2*pcc_arm.num_segments), q_goal_value[:,0],u0, x1)
 
                 # apply the first control input to the real system
@@ -94,7 +96,7 @@ def main():
 #######################################
 
 # Update params
-                if (pcc_arm.history_index > (MPC_PARAMETERS['N_p_adaptative']+100)):
+                if False and (pcc_arm.history_index > (MPC_PARAMETERS['N_p_adaptative']+100)):
                     start_idx = pcc_arm.history_index - MPC_PARAMETERS['N_p_adaptative']-1
                     end_idx = pcc_arm.history_index-1
 
@@ -153,7 +155,8 @@ def main():
     out_dir = "csv_and_plots_adapt/"
     plt.figure()
     error_list = np.array(error_list)
-    error_list[:opti_index[1]-1] = error_list[opti_index[1]]
+    if len(opti_index)>1:
+        error_list[:opti_index[1]-1] = error_list[opti_index[1]]
     plt.plot(np.arange(len(error_list))*pcc_arm.dt,error_list, label='Mean squared error over last steps')
     plt.plot(np.arange(len(instant_error_list))*pcc_arm.dt,instant_error_list, label='Instant error')
     plt.legend()
@@ -233,9 +236,9 @@ def create_adaptative_parameters_solver_SQP(arm,N):
 
     # SQP
     opts = {
-        'jit': True,
-        'compiler': 'shell',
-        'jit_options': {'flags': ['-O3']}, 
+        #'jit': True,
+        #'compiler': 'shell',
+        #'jit_options': {'flags': ['-O3']}, 
         'qpsol': 'qrqp',          #QP solverqrqp, osqp, qpoases
         'qpsol_options': {'print_iter': False, 'print_header': False},
         'max_iter': 1,

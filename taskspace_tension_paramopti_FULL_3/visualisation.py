@@ -58,7 +58,7 @@ def history_plot(pcc_arm,u_bound,xyz_traj=None, save=False, opti_index=None):
     color = ['b', 'r', 'm']
     for i in range(pcc_arm.num_segments):
         for k in range(3):
-            axs[i].plot(time, history_u_tendon[:,2*i+k], label=labels[k], linestyle='-', color=color[k])
+            axs[i].plot(time, history_u_tendon[:,3*i+k], label=labels[k], linestyle='-', color=color[k])
         axs[i].set_title(f'Segment {i+1}')
         axs[i].set_xlabel('Time [s]')
         axs[i].set_ylabel('N')
@@ -175,7 +175,8 @@ def history_plot(pcc_arm,u_bound,xyz_traj=None, save=False, opti_index=None):
     ani = animation.FuncAnimation(
         fig, 
         func=update_line, 
-        frames=np.arange(0,len(history),5),  # update every 5 frames to speed up
+        frames=len(history),
+        interval=pcc_arm.dt*1000,
         fargs=fargs,
     )
     if save:

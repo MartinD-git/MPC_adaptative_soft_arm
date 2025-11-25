@@ -17,7 +17,7 @@ I = np.pi*(r_o**4 - r_i**4)/4 #second moment of area
 m = rho * A * L #mass of each segment
 k_phi = 0
 k_theta = 0.015634 #gotten from static simulation or (E*I)/L
-xi=0.05
+xi=0.15
 d = 2*xi*1.875**2 * np.sqrt((rho*A*E*I)/(L**2))
 
 
@@ -45,7 +45,7 @@ SIM_PARAMETERS = {
     "dt": dt,
     "T": 50,#180
     "x0": np.array([ # phi, theta
-        np.deg2rad(0), np.deg2rad(1e-6), np.deg2rad(0), np.deg2rad(0), np.deg2rad(0), np.deg2rad(0), # phi is angle at base, theta is curvature
+        np.deg2rad(1e-3), np.deg2rad(1e-3), np.deg2rad(1e-3), np.deg2rad(1e-3), np.deg2rad(1e-3), np.deg2rad(1e-3), # phi is angle at base, theta is curvature
         0, 0, 0, 0, 0, 0
     ]),
     "T_loop": 15,  # seconds
