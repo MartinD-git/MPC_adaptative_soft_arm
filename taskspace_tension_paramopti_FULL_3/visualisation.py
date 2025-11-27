@@ -73,7 +73,7 @@ def history_plot(pcc_arm,u_bound,xyz_traj=None, save=False, opti_index=None):
         if save:
             plt.savefig(out_dir + f"States_Torques.png", dpi=200)
 
-    #error plot
+    # adaptative parameters plot
     initial_param = np.array([pcc_arm.m, pcc_arm.d_eq[0], pcc_arm.d_eq[1], pcc_arm.d_eq[2], pcc_arm.K[1,1], pcc_arm.K[3,3], pcc_arm.K[5,5]])
 
     fig, axes = plt.subplots(4, 2, figsize=(12, 10), sharex=True)
@@ -95,6 +95,21 @@ def history_plot(pcc_arm,u_bound,xyz_traj=None, save=False, opti_index=None):
     if save:
         plt.savefig(out_dir + "adaptive_parameters.png", dpi=200)
 
+    # Error plot over time
+    # plt.figure()
+    # error_list = np.array(error_list)
+    # if len(opti_index)>1:
+    #     error_list[:opti_index[1]-1] = error_list[opti_index[1]]
+    # plt.plot(np.arange(len(error_list))*pcc_arm.dt,error_list, label='Mean squared error over last steps')
+    # plt.plot(np.arange(len(instant_error_list))*pcc_arm.dt,instant_error_list, label='Instant error')
+    # plt.legend()
+    # for i in range(1,len(opti_index)):
+    #     plt.axvline(x=opti_index[i]*pcc_arm.dt,color='r',linestyle='--',alpha=0.5)
+    # plt.title("Error over time")
+    # plt.xlabel("Time step")
+    # plt.ylabel("Error")
+    # if save:
+    #     plt.savefig(out_dir + "error_over_time.png", dpi=200)
 
 
     # 3d animation

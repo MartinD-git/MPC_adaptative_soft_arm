@@ -311,7 +311,8 @@ def generate_total_trajectory(arm,SIM_PARAMETERS,N,stabilizing_time=0, loop_time
 
     T = SIM_PARAMETERS['T']
     dt = SIM_PARAMETERS['dt']
-    q0 = SIM_PARAMETERS['x0']
+    x0 = arm.end_effector(SIM_PARAMETERS['x0'][:2*arm.num_segments])
+    x0 = np.array(x0).flatten()
     radius = SIM_PARAMETERS['radius_trajectory']
     center = SIM_PARAMETERS['center_trajectory']
     rotation_angles = SIM_PARAMETERS['rotation_angles_trajectory']
@@ -329,6 +330,10 @@ def generate_total_trajectory(arm,SIM_PARAMETERS,N,stabilizing_time=0, loop_time
     # follow the circular trajectory
     xyz_circular_traj = circle_trajectory(radius=radius, center=center, rotation_angles=rotation_angles, num_points=int(loop_time//dt))
     dottet_plotting_traj = xyz_circular_traj.copy()
+
+    # get to closest x0 point
+    idx0 = np.argmin(np.linalg.norm(xyz_circular_traj - x0, axis=1))
+    xyz_circular_traj = np.unwrap(np.roll(xyz_circular_traj, -idx0, axis=0),axis=0)
     
     xyz_circular_traj = np.tile(xyz_circular_traj, (int(number_of_loops), 1))
 

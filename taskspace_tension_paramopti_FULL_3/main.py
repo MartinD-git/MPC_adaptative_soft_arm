@@ -150,20 +150,6 @@ def main():
     print("--- %s seconds ---" % (time.perf_counter() - start_time))
     save = False
     out_dir = "csv_and_plots_adapt/"
-    plt.figure()
-    error_list = np.array(error_list)
-    if len(opti_index)>1:
-        error_list[:opti_index[1]-1] = error_list[opti_index[1]]
-    plt.plot(np.arange(len(error_list))*pcc_arm.dt,error_list, label='Mean squared error over last steps')
-    plt.plot(np.arange(len(instant_error_list))*pcc_arm.dt,instant_error_list, label='Instant error')
-    plt.legend()
-    for i in range(1,len(opti_index)):
-        plt.axvline(x=opti_index[i]*pcc_arm.dt,color='r',linestyle='--',alpha=0.5)
-    plt.title("Error over time")
-    plt.xlabel("Time step")
-    plt.ylabel("Error")
-    if save:
-        plt.savefig(out_dir + "error_over_time.png", dpi=200)
 
     plt.figure()
     plt.plot(np.arange(len(loop_time))*pcc_arm.dt,loop_time)
