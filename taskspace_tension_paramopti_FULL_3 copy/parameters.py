@@ -1,0 +1,64 @@
+import numpy as np
+
+# we consider a segment as a cylinder:
+#material: TPU
+E= #Young modulus23e6
+rho=1220 #density
+
+#arm
+r_o     = 0.04 # outer radius [m]
+r_d = 0.036  # radius at which tendons are located
+L = 0.315 #length of each segment
+
+m =  #mass of each segment
+k_phi = 
+k_theta =  #gotten from static simulation
+xi=
+d =
+
+
+rho_water = 1000 #density of water
+rho_air = 1.225 #density of air
+
+rho_liquid = rho_water  # density of the surrounding fluid
+
+
+horizon_time = 3  #seconds
+dt = 0.1  #seconds
+
+num_segments = 3
+
+MPC_PARAMETERS = {
+    "N": int(np.ceil(horizon_time/dt)),
+    "Q":  np.diag([1e2]*3 + [1]*2*num_segments),
+    "Qf": np.diag([1e2]*3 + [1]*2*num_segments),  # stronger terminal weight helps convergence
+    "R": 1e-5*np.eye(3*num_segments),
+    "u_bound": [2,40],#[0,tension_bound],
+    "N_p_adaptative": 20, #number of previous steps to consider for parameter estimation
+}
+
+SIM_PARAMETERS = {
+    "dt": dt,
+    "T": 50,#180
+    "x0": np.array([ # phi, theta
+        np.deg2rad(1e-3), np.deg2rad(1e-3), np.deg2rad(1e-3), np.deg2rad(1e-3), np.deg2rad(1e-3), np.deg2rad(1e-3), # phi is angle at base, theta is curvature
+        0, 0, 0, 0, 0, 0
+    ]),
+    "T_loop": 15,  # seconds
+    "radius_trajectory": 0.4*L,
+    "center_trajectory": np.array([1+0.2, 0, 1.4+0.8])*L,
+    "rotation_angles_trajectory": np.array([np.deg2rad(0), np.deg2rad(60), np.deg2rad(0)]),
+}
+
+ARM_PARAMETERS = {
+    "L_segs": [L, L, L],
+    "r_o": r_o,
+    "sigma_k": [np.pi/3, np.pi, 5*np.pi/3,0, 2*np.pi/3, 4*np.pi/3, np.pi/3, np.pi, 5*np.pi/3],  # tendon routing angles
+    "rho_arm": rho,
+    "d_eq": [d, d, d],
+    "K": np.diag([k_phi, k_theta, k_phi, k_theta, k_phi, k_theta]),
+    "num_segments": num_segments,
+    "rho_liquid": rho_liquid,
+    "r_d": r_d,
+}
+
