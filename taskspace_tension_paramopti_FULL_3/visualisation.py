@@ -20,54 +20,58 @@ def history_plot(pcc_arm,u_bound,xyz_traj=None, save=False, opti_index=None):
         np.savetxt(out_dir + "history_d.csv", history_d, delimiter=",")
         np.savetxt(out_dir + "history_angles.csv", history, delimiter=",")
         np.savetxt(out_dir + "history_u_tendon.csv", history_u_tendon, delimiter=",")
-    M_raw = np.hstack((history, history_d, history_u)).T  # (30, T)
-    M = normalize(M_raw,u_bound,pcc_arm.num_segments)
+
     time = np.arange(history.shape[0]) * pcc_arm.dt
 
+    fig, axs = plt.subplots(3, pcc_arm.num_segments, figsize=(14, 8), sharex=True, constrained_layout=True)
     for i in range(pcc_arm.num_segments):
-        fig, axs = plt.subplots(2, 1, figsize=(8, 6))
-        fig.suptitle(f"Segment {i+1}")
 
-        labels = [r'$\phi$', r'$\phi_d$', r'$\dot{\phi}$', r'$\dot{\phi}_d$', r'$\tau$']
-        linestyle = ['-', '--', '-', '--', '-']
-        color = ['b', 'b', 'c', 'c', 'r']
-        idx = np.array([2*i, 4*pcc_arm.num_segments+2*i, 2*pcc_arm.num_segments+2*i, 4*pcc_arm.num_segments+2*pcc_arm.num_segments+2*i, 8*pcc_arm.num_segments+2*i]) 
-        for j in range(5):
-            axs[0].plot(time, M[idx[j], :], label=labels[j], linestyle=linestyle[j], color=color[j])
-        axs[0].set_title('Phi and Torque')
-        axs[0].set_xlabel('Time [s]'); axs[0].set_ylabel('Normalized'); axs[0].legend()
+        fig.suptitle(f"States and Torques for Segment")
 
-        labels = [r'$\theta$', r'$\theta_d$', r'$\dot{\theta}$', r'$\dot{\theta}_d$', r'$\tau$']
-        linestyle = ['-', '--', '-', '--', '-']
-        color = ['b', 'b', 'c', 'c', 'r']
-        idx = np.array([2*i+1, 4*pcc_arm.num_segments+2*i+1, 2*pcc_arm.num_segments+2*i+1, 4*pcc_arm.num_segments+2*pcc_arm.num_segments+2*i+1, 8*pcc_arm.num_segments+2*i+1])
-        for j in range(5):
-            axs[1].plot(time, M[idx[j], :], label=labels[j], linestyle=linestyle[j], color=color[j])
-        axs[1].set_title('Theta and Torque')
-        axs[1].set_xlabel('Time [s]'); axs[1].set_ylabel('Normalized'); axs[1].legend()
-        plt.tight_layout()
-        if save:
-            plt.savefig(out_dir + f"segment_{i+1}_states_and_torques.png", dpi=200)
+        axs[0, i].set_title(f"Segment {i+1} Theta")
+        # theta
+        axs[0, i].plot(time, history[:,0+2*i], label=r'$\theta$', linestyle='-', color='b')
+        axs[0, i].plot(time, history_d[:,0+2*i], label=r'$\theta_d$', linestyle='--', color='b')
+        axs[0, i].set_ylabel('rad')
+        axs[0, i].tick_params(axis='y', labelcolor='b')
+        #axs[0, i].legend()
+        # theta dot
+        ax2 = axs[0, i].twinx() 
+        ax2.plot(time, history[:,0+2*pcc_arm.num_segments+2*i], label=r'$\dot{\theta}$', linestyle='-', color='c')
+        ax2.plot(time, history_d[:,0+2*pcc_arm.num_segments+2*i], label=r'$\dot{\theta}_d$', linestyle='--', color='c')
+        ax2.set_ylabel('rad/s')
+        ax2.tick_params(axis='y', labelcolor='c')
+        #ax2.legend()
+    
 
-
-    # tendon plot 
-    fig, axs = plt.subplots(3, 1, figsize=(8, 6))
-    fig.suptitle("Control Inputs (Tendon Tensions)")
-
-    labels = [r'$T_1$', r'$T_2$', r'$T_3$']
-    color = ['b', 'r', 'm']
-    for i in range(pcc_arm.num_segments):
+        axs[1, i].set_title(f"Segment {i+1} Phi")
+        # phi
+        axs[1, i].plot(time, history[:,1+2*i], label=r'$\phi$', linestyle='-', color='b')
+        axs[1, i].plot(time, history_d[:,1+2*i], label=r'$\phi_d$', linestyle='--', color='b')
+        axs[1, i].set_ylabel('rad')
+        axs[1, i].tick_params(axis='y', labelcolor='b')
+        #axs[1, i].legend()
+        # phi dot
+        ax2 = axs[1, i].twinx() 
+        ax2.plot(time, history[:,1+2*pcc_arm.num_segments+2*i], label=r'$\dot{\phi}$', linestyle='-', color='c')
+        ax2.plot(time, history_d[:,1+2*pcc_arm.num_segments+2*i], label=r'$\dot{\phi}_d$', linestyle='--', color='c')
+        ax2.set_ylabel('rad/s')
+        ax2.tick_params(axis='y', labelcolor='c')
+        #ax2.legend()
+    
+        # tendon tensions
+        labels = [r'$T_1$', r'$T_2$', r'$T_3$']
+        color = ['b', 'r', 'm']
         for k in range(3):
-            axs[i].plot(time, history_u_tendon[:,3*i+k], label=labels[k], linestyle='-', color=color[k])
-        axs[i].set_title(f'Segment {i+1}')
-        axs[i].set_xlabel('Time [s]')
-        axs[i].set_ylabel('N')
-        axs[i].set_ylim(0, u_bound[1]*1.1)
-        axs[i].legend()
-        
-    plt.tight_layout()
-    if save:
-        plt.savefig(out_dir + "tendon_tensions.png", dpi=200)
+            axs[2, i].plot(time, history_u_tendon[:,3*i+k], label=labels[k], linestyle='-', color=color[k])
+        axs[2,i].set_title(f'Segment {i+1}')
+        axs[2,i].set_xlabel('Time [s]')
+        axs[2,i].set_ylabel('N')
+        axs[2,i].set_ylim(0, u_bound[1]*1.1)
+        axs[2,i].legend()
+
+        if save:
+            plt.savefig(out_dir + f"States_Torques.png", dpi=200)
 
     #error plot
     initial_param = np.array([pcc_arm.m, pcc_arm.d_eq[0], pcc_arm.d_eq[1], pcc_arm.d_eq[2], pcc_arm.K[1,1], pcc_arm.K[3,3], pcc_arm.K[5,5]])
@@ -185,20 +189,6 @@ def history_plot(pcc_arm,u_bound,xyz_traj=None, save=False, opti_index=None):
         ani.save(out_dir + 'broken_base_tendon.mp4', writer='ffmpeg', fps=int(round(1.0 / pcc_arm.dt)), dpi=200)
         print("Animation saved")
     plt.show()
-
-def normalize(M,u_bound,num_segments, eps=1e-8):
-    max_abs = np.max(np.abs(M), axis=1, keepdims=True)  # (n_rows, 1)
-
-    angle_limit = np.pi
-    torque_limit = u_bound[1]
-    angle_divider = np.full(2*num_segments, angle_limit)
-    velocity_divider = max_abs[2*num_segments:4*num_segments].flatten()
-    torque_divider = np.full(2*num_segments, torque_limit)
-    divider = np.hstack([angle_divider, velocity_divider, angle_divider, velocity_divider, torque_divider])
-
-    out = np.zeros_like(M, dtype=float)
-    np.divide(M, divider.reshape(-1,1), out=out, where=divider.reshape(-1,1) >= eps)
-    return out
 
 def update_line(num, points1, points2, points3, lines,
                 tip_line=None, tip_trajectory=None,

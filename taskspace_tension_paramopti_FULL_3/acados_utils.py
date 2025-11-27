@@ -107,7 +107,7 @@ def setup_acados_integrator(pcc_arm, dt):
     return AcadosSimSolver(sim)
 
 
-def mpc_step_acados(ocp_solver, x0, q_goal, p_adaptive,N, u_prev, u_bound):
+def mpc_step_acados(ocp_solver, x0, q_goal, p_adaptive,N, u_bound):
 
     nx = ocp_solver.acados_ocp.dims.nx
     nu = ocp_solver.acados_ocp.dims.nu
@@ -127,14 +127,6 @@ def mpc_step_acados(ocp_solver, x0, q_goal, p_adaptive,N, u_prev, u_bound):
     for i in range(N):
         yref_i = np.hstack([q_goal[:, i], np.zeros(nu)])
         ocp_solver.set(i, 'yref', yref_i)
-        # bounds
-        lbu_local = u_prev - 3*(i+1)*np.ones(nu)
-        ubu_local = u_prev + 3*(i+1)*np.ones(nu)
-
-        #print(np.max(np.vstack((lbu_local, lbu)),axis=0))
-        #print(np.min(np.vstack((ubu_local, ubu)),axis=0))
-        ocp_solver.constraints_set(i, 'lbu', np.max(np.vstack((lbu_local, lbu)),axis=0))
-        ocp_solver.constraints_set(i, 'ubu', np.min(np.vstack((ubu_local, ubu)),axis=0))
     ocp_solver.set(N, 'yref', q_goal[:, N])  # terminal
 
     # solve

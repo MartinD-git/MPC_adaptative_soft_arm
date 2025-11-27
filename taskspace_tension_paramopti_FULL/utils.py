@@ -182,11 +182,6 @@ def pcc_dynamics(arm,q, q_dot, tips, jacobians,water=False):
     q_dot_from_x = x[2*num_segments:]
 
     # Calculate q_ddot
-    '''M_term= M_func(q_from_x)+1e-6* ca.DM.eye(2*num_segments)
-    C_term= C_vec_func(q_from_x, q_dot_from_x)
-    G_term= G_func(q_from_x)
-    D_term= D_func(q_from_x, q_dot_from_x) @ q_dot_from_x
-    K_term= K @ q_from_x'''
     M_term= M_func(q0[:2*num_segments],p_adaptative[0])+1e-6* ca.DM.eye(2*num_segments)
     C_term= C_vec_func(q0[:2*num_segments], q0[2*num_segments:], p_adaptative[0])
     G_term= G_func(q0[:2*num_segments], p_adaptative[0])
@@ -281,47 +276,6 @@ def circle_trajectory(radius, center, rotation_angles, num_points):
 
     return trajectory
 
-def taskspace_to_jointspace(arm, traj_xyz, w_reg=1e-4):
-    """
-    Convert a sequence of Cartesian points (Nx3) into joint vectors (Nx, 2*num_segments).
-    """
-    Nseg = arm.num_segments
-    dof = 2 * Nseg
-    tip_index = (Nseg - 1)
-    q0 = np.array([0, np.deg2rad(10), 0, np.deg2rad(10)])
-
-    # Variables
-    q = ca.SX.sym('q', dof)
-    p_des = ca.SX.sym('p', 3)
-
-    # Build tip position at s=1 using your FK
-    tips, _ = pcc_forward_kinematics(arm.s, q, arm.L_segs, num_segments=Nseg)
-    p_tip = ca.substitute(tips[tip_index], arm.s, 1.0)  
-
-    # Small least-squares
-    cost = ca.sumsqr(p_tip - p_des) + w_reg * ca.sumsqr(q)
-
-    nlp = {'x': q, 'p': p_des, 'f': cost}
-    opts = {'ipopt.print_level': 0, 'print_time': 0}
-    solver = ca.nlpsol('ik', 'ipopt', nlp, opts)
-
-    # Prepare bounds and initial guess
-    #delta = np.array([np.deg2rad(99999)]*dof)
-
-    Q = np.zeros((traj_xyz.shape[0], dof))
-    q_prev = q0
-
-    for i, p in enumerate(traj_xyz):
-        lbx = q_prev #- delta
-        ubx = q_prev #+ delta
-        sol = solver(x0=q_prev, p=p)
-        q_sol = np.array(sol['x']).flatten()
-        Q[i, :] = q_sol
-        q_prev = q_sol  # warm-start next point
-
-    #debug_trajectory_generation_plot(arm, traj_xyz, Q)
-
-    return Q
 
 def generate_total_trajectory(arm,SIM_PARAMETERS,N,stabilizing_time=0, loop_time=6.0):
 
@@ -346,85 +300,11 @@ def generate_total_trajectory(arm,SIM_PARAMETERS,N,stabilizing_time=0, loop_time
     # follow the circular trajectory
     xyz_circular_traj = circle_trajectory(radius=radius, center=center, rotation_angles=rotation_angles, num_points=int(loop_time//dt))
     dottet_plotting_traj = xyz_circular_traj.copy()
-    q_traj = taskspace_to_jointspace(arm, xyz_circular_traj)
-    
-    idx0 = np.argmin(np.linalg.norm(q_traj - q0[:2*arm.num_segments], axis=1))
-    q_traj = np.unwrap(np.roll(q_traj, -idx0, axis=0),axis=0) #start at the closest point to q0
-    xyz_circular_traj = np.unwrap(np.roll(xyz_circular_traj, -idx0, axis=0),axis=0)
 
-    q_dot_traj = np.diff(np.vstack((q_traj,q_traj[0,:])),axis=0)/dt
-    q_circ_traj = np.hstack((q_traj, q_dot_traj))
-
-    q_circ_traj = np.tile(q_circ_traj, (int(number_of_loops), 1)) #more than necessary
     xyz_circular_traj = np.tile(xyz_circular_traj, (int(number_of_loops), 1))
 
     # give first point of circle for a moment to stabilize
-    q_stabilize_traj = np.tile(q_circ_traj[0], (num_stabilize_points, 1))
-    q_stabilize_traj[:,2*arm.num_segments:] = 0.0 # zero velocities
     xyz_stabilize_traj = np.tile(xyz_circular_traj[0], (num_stabilize_points, 1))
-
-    q_tot_traj = np.vstack((q_stabilize_traj, q_circ_traj))
     xyz_tot_traj = np.vstack((xyz_stabilize_traj, xyz_circular_traj))
 
-
-    return q_tot_traj[:int(T//dt+N+2),:], xyz_tot_traj, dottet_plotting_traj #+1 for the last point, +1 for the diff to be sure
-
-def anglediff(a, b):
-    # CasADi-safe angle difference in [-pi, pi] # used when trying to solve ik smoothness problems
-    return ca.atan2(ca.sin(a - b), ca.cos(a - b))
-
-def debug_trajectory_generation_plot(arm, traj_xyz, Qsol):
-
-    # NB: This function has been AI generated and may require adjustments.
-    # Used for debugging purposes only.
-
-    N_seg = arm.num_segments
-    num_points = traj_xyz.shape[0]
-    dof = 2 * N_seg
-    q_row = ca.SX.sym('q_row', dof)
-    tips_row, _ = pcc_forward_kinematics(arm.s, q_row, arm.L_segs, num_segments=N_seg)
-    p_tip_row = ca.substitute(tips_row[N_seg - 1], arm.s, 1.0)
-    fk_tip = ca.Function('fk_tip', [q_row], [p_tip_row])
-
-    # Evaluate tip positions for the solved joint path
-    P = np.array([np.array(fk_tip(Qsol[i, :])).squeeze() for i in range(num_points)])
-
-    # 3D plot
-    fig = plt.figure()
-    ax = fig.add_subplot(111, projection='3d')
-    ax.plot(traj_xyz[:,0], traj_xyz[:,1], traj_xyz[:,2], 'o', label='desired')
-    ax.plot(P[:,0], P[:,1], P[:,2], '-', label='IK tip')
-    ax.set_xlabel('X'); ax.set_ylabel('Y'); ax.set_zlabel('Z')
-    ax.set_title('IK vs desired circle'); ax.legend()
-
-    # Make axes roughly equal
-    xs, ys, zs = P[:,0], P[:,1], P[:,2]
-    xm, ym, zm = xs.mean(), ys.mean(), zs.mean()
-    r = 0.5 * max(xs.max()-xs.min(), ys.max()-ys.min(), zs.max()-zs.min())
-    ax.set_xlim(xm - r, xm + r); ax.set_ylim(ym - r, ym + r); ax.set_zlim(zm - r, zm + r)
-    phi   = Qsol[:, 0::2]                 # shape: (N, N_seg)
-    theta = Qsol[:, 1::2]                 # shape: (N, N_seg)
-
-    # unwrap φ to avoid ±2π jumps for readability
-    phi_un = np.unwrap(phi, axis=0)
-    phi_un=phi
-
-    # to degrees (nicer to read)
-    rad2deg = 180.0/np.pi
-    phi_deg   = phi_un * rad2deg
-    theta_deg = theta   * rad2deg
-
-    fig, (ax1, ax2) = plt.subplots(2, 1, sharex=True)
-
-    for k in range(N_seg):
-        ax1.plot(phi_deg[:, k], label=f'φ{k+1}')
-        ax2.plot(theta_deg[:, k], label=f'θ{k+1}')
-
-    ax1.set_ylabel('φ (deg)')
-    ax2.set_ylabel('θ (deg)')
-    ax2.set_xlabel('waypoint index')
-    ax1.set_title('Joint angles along trajectory')
-    ax1.legend(ncol=max(1, N_seg//2), fontsize=8)
-    ax2.legend(ncol=max(1, N_seg//2), fontsize=8)
-    plt.tight_layout()
-    plt.show()
+    return xyz_tot_traj, dottet_plotting_traj #+1 for the last point, +1 for the diff to be sure

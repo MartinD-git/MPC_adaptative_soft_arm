@@ -14,7 +14,7 @@ id 5 is zero
 radisu pulley = 6mm
 measure length should be 3*105
 d = 40 mm
-tendon radius is 36mm
+tendon diameter is 36mm
 
 '''
 
@@ -43,7 +43,7 @@ def main():
 
     #generate circular trajectory (N,4*num_segments)
     print("Generating trajectory")
-    q_tot_traj, xyz_circular_traj, dottet_plotting_traj = generate_total_trajectory(pcc_arm,SIM_PARAMETERS,N,stabilizing_time=0, loop_time=SIM_PARAMETERS['T_loop'])
+    xyz_circular_traj, dottet_plotting_traj = generate_total_trajectory(pcc_arm,SIM_PARAMETERS,N,stabilizing_time=0, loop_time=SIM_PARAMETERS['T_loop'])
     print("Trajectory is generated")
     
     # Create Acados OCP solver
@@ -75,16 +75,13 @@ def main():
                 q_goal_value = np.vstack((xyz_circular_traj[t:t+N+1,:].T,np.zeros((2*pcc_arm.num_segments,N+1))))  # zero velocities
                 if t == 0:
                     adapt_param = pcc_arm.history_adaptive_param[:,0]
-                    u_prev = pcc_arm.history_u_tendon[:, 0]
                 else:
                     adapt_param = pcc_arm.history_adaptive_param[:,pcc_arm.history_index-1]
-                    u_prev = pcc_arm.history_u_tendon[:, pcc_arm.history_index-1]
 
                 
-                #u0, x1 = mpc_step_acados(ocp_solver, pcc_arm.current_state, q_goal_value, adapt_param, N, u_prev, MPC_PARAMETERS['u_bound'])
-                x1 = pcc_arm.current_state
+                u0, x1 = mpc_step_acados(ocp_solver, pcc_arm.current_state, q_goal_value, adapt_param, N, MPC_PARAMETERS['u_bound'])
+
                 loop_time_1 = time.perf_counter()
-                u0=0 #simulate broken tendon
                 pcc_arm.log_history(np.zeros(2*pcc_arm.num_segments), q_goal_value[:,0],u0, x1)
 
                 # apply the first control input to the real system

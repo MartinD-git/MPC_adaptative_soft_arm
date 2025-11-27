@@ -6,8 +6,8 @@ E= 23e6 #Young modulus23e6
 rho=1220 #density
 
 #arm
-r_o     = 0.04 # outer radius [m]
-t_wall  = 0.004 # wall thickness [m]
+r_o     = 0.02 # outer radius [m]
+t_wall  = 0.002 # wall thickness [m]
 r_i     = r_o - t_wall
 r_d = 0.036  # radius at which tendons are located
 L = 0.315 #length of each segment
@@ -16,7 +16,7 @@ A= np.pi*(r_o**2 - r_i**2)  # area
 I = np.pi*(r_o**4 - r_i**4)/4 #second moment of area
 m = rho * A * L #mass of each segment
 k_phi = 0
-k_theta = 0.015634 #gotten from static simulation or (E*I)/L
+k_theta = 0.356 #gotten from static simulation or (E*I)/L
 xi=0.05
 d = 2*xi*1.875**2 * np.sqrt((rho*A*E*I)/(L**2))
 

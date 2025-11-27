@@ -6,18 +6,20 @@ E= 23e6 #Young modulus23e6
 rho=1220 #density
 
 #arm
-r_o     = 0.04 # outer radius [m]
-t_wall  = 0.004 # wall thickness [m]
+r_o     = 0.04/2 # outer radius [m]
+t_wall  = 0.002 # wall thickness [m]
 r_i     = r_o - t_wall
-r_d = 0.036  # radius at which tendons are located
+r_d = 0.036/2  # radius at which tendons are located
 L = 0.315 #length of each segment
 
 A= np.pi*(r_o**2 - r_i**2)  # area
 I = np.pi*(r_o**4 - r_i**4)/4 #second moment of area
-m = rho * A * L #mass of each segment
+m = rho * np.pi*(r_o**2) * L*0.5 #mass of each segment estimated 0.5 infill
+
+print("Mass of each segment:", m)
 k_phi = 0
-k_theta = 0.015634 #gotten from static simulation or (E*I)/L
-xi=0.15
+k_theta = 0.356*6 #gotten from static simulation
+xi=0.2
 d = 2*xi*1.875**2 * np.sqrt((rho*A*E*I)/(L**2))
 
 
@@ -37,7 +39,7 @@ MPC_PARAMETERS = {
     "Q":  np.diag([1e2]*3 + [1]*2*num_segments),
     "Qf": np.diag([1e2]*3 + [1]*2*num_segments),  # stronger terminal weight helps convergence
     "R": 1e-5*np.eye(3*num_segments),
-    "u_bound": [2,40],#[0,tension_bound],
+    "u_bound": [2,1e3],#[0,tension_bound],
     "N_p_adaptative": 20, #number of previous steps to consider for parameter estimation
 }
 
@@ -45,7 +47,7 @@ SIM_PARAMETERS = {
     "dt": dt,
     "T": 50,#180
     "x0": np.array([ # phi, theta
-        np.deg2rad(1e-3), np.deg2rad(1e-3), np.deg2rad(1e-3), np.deg2rad(1e-3), np.deg2rad(1e-3), np.deg2rad(1e-3), # phi is angle at base, theta is curvature
+        np.deg2rad(1e1), np.deg2rad(1e1), np.deg2rad(1e1), np.deg2rad(1e1), np.deg2rad(1e1), np.deg2rad(1e1), # phi is angle at base, theta is curvature
         0, 0, 0, 0, 0, 0
     ]),
     "T_loop": 15,  # seconds
@@ -65,5 +67,6 @@ ARM_PARAMETERS = {
     "num_segments": num_segments,
     "rho_liquid": rho_liquid,
     "r_d": r_d,
+    "m": m,
 }
 
