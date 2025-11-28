@@ -44,15 +44,7 @@ def main():
     #generate circular trajectory (N,4*num_segments)
     print("Generating trajectory")
     xyz_circular_traj, dottet_plotting_traj = generate_total_trajectory(pcc_arm,SIM_PARAMETERS,N,stabilizing_time=0, loop_time=SIM_PARAMETERS['T_loop'])
-    print("Trajectory is generated")
-    # point_target = np.array([ # phi, theta
-    #         np.deg2rad(50), np.deg2rad(50), # segment 1
-    #         np.deg2rad(50), np.deg2rad(50), # segment 2
-    #     ])
-    # point_target = pcc_arm.end_effector(point_target).full().flatten()
-    # xyz_circular_traj = np.tile(point_target.reshape(1,-1), (num_iter,1))
-    # dottet_plotting_traj = xyz_circular_traj[:, :3]
-    
+    print("Trajectory is generated")    
     
     # Create Acados OCP solver
     Tf = N * SIM_PARAMETERS['dt']
@@ -215,100 +207,3 @@ def create_adaptative_parameters_solver_SQP(arm,N):
 
 if __name__ == "__main__":
     main()
-
-
-
-
-
-
-###################################
-### Some AI code to compile only once instead of waiting each time with JIT
-# def create_adaptative_parameters_solver_SQP_cached(arm, N, lib_name='solver_sqp.so'):
-    
-#     # Options for the solver
-#     # Note: We REMOVE 'jit': True because we are handling compilation manually.
-#     opts = {
-#         'qpsol': 'qrqp',
-#         'qpsol_options': {'print_iter': False, 'print_header': False},
-#         'max_iter': 1,
-#         'print_time': 0,
-#         'print_header': False,
-#         'print_iteration': False
-#     }
-
-#     # 1. CHECK IF COMPILED LIBRARY EXISTS
-#     if os.path.exists(lib_name):
-#         print(f"Loading existing solver from {lib_name}...")
-#         # Load the compiled shared library directly
-#         solver = ca.nlpsol('adaptative_solver', 'sqpmethod', lib_name, opts)
-        
-#         # Re-create the error_func symbolically (fast) or load it if you saved it too.
-#         # Since error_func is just for evaluation (no derivatives), symbolic is usually fine.
-#         # To make this purely symbolic, we need to recreate the symbols p_adaptative and p below.
-#         # However, to avoid code duplication, we can regenerate the symbols quickly:
-#         p_adaptative = ca.MX.sym('p_adaptative', arm.num_adaptive_params)
-#         p = ca.MX.sym('p', (4*arm.num_segments + 3*arm.num_segments)*(N+1)+arm.num_adaptive_params)
-        
-#         # Note: We need the cost expression for error_func. 
-#         # If computing the symbolic cost is slow, you should also generate/compile error_func.
-#         # Assuming symbolic creation is fast enough:
-#         cost = get_symbolic_cost(arm, N, p_adaptative, p) 
-#         error_func = ca.Function('error_func', [p_adaptative, p], [cost])
-        
-#         return solver, error_func
-
-#     # 2. IF NOT EXISTS, GENERATE AND COMPILE (The heavy lifting)
-#     print("Compiling solver (this may take a minute)...")
-    
-#     p_adaptative = ca.MX.sym('p_adaptative', arm.num_adaptive_params)
-#     p = ca.MX.sym('p', (4*arm.num_segments + 3*arm.num_segments)*(N+1)+arm.num_adaptive_params)
-    
-#     # Helper to generate cost (logic moved to helper to allow reuse)
-#     cost = get_symbolic_cost(arm, N, p_adaptative, p)
-
-#     nlp = {'x': p_adaptative, 'p': p, 'f': cost}
-
-#     # Create the solver instance momentarily to generate dependencies
-#     # We give it a dummy name because the final name comes from the loaded .so
-#     temp_solver = ca.nlpsol('temp_solver', 'sqpmethod', nlp, opts)
-
-#     # Generate C code (includes the integrator and all derivatives)
-#     c_file_name = lib_name.replace('.so', '.c')
-#     temp_solver.generate_dependencies(c_file_name)
-
-#     # Compile the C code using system compiler (GCC/Clang)
-#     # -O3 for optimization, -fPIC -shared for dynamic library
-#     compile_cmd = f"gcc -fPIC -shared -O3 {c_file_name} -o {lib_name}"
-#     compile_status = os.system(compile_cmd)
-    
-#     if compile_status != 0:
-#         raise Exception("Compilation failed!")
-
-#     print("Compilation finished. Reloading...")
-
-#     # Recursively call this function to load the now-existing library
-#     return create_adaptative_parameters_solver_SQP_cached(arm, N, lib_name)
-
-
-# def get_symbolic_cost(arm, N, p_adaptative, p):
-#     """
-#     Refactored the cost generation logic out so it can be called 
-#     during both compilation and reconstruction.
-#     """
-#     state_history = p[:4*arm.num_segments*(N+1)].reshape((4*arm.num_segments,N+1))
-#     u_history = p[4*arm.num_segments*(N+1):-arm.num_adaptive_params,:].reshape((3*arm.num_segments,N+1))
-#     p_adaptative_prev = p[-arm.num_adaptive_params:]
-
-#     cost = 0
-#     weights = ca.diag([1]*4 + [1]*4) 
-    
-#     for i in range(N):
-#         p_global = ca.vertcat(state_history[:,-(i+2)], p_adaptative)
-#         # Ensure arm.integrator is available here
-#         q_pred = arm.integrator(x0=state_history[:,-(i+2)], u=u_history[:,-(i+2)], p_global=p_global)['xf']
-#         cost += ca.sumsqr(weights @ (q_pred - state_history[:,-(i+1)])) 
-
-#     weights_difference = 10.0
-#     cost += weights_difference * ca.sumsqr(p_adaptative - p_adaptative_prev)
-    
-#     return cost

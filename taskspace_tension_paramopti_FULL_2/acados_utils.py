@@ -41,13 +41,9 @@ def setup_ocp_solver(pcc_arm, MPC_PARAMETERS, N, Tf):
     ocp.solver_options.tf = Tf
     ocp.solver_options.nlp_solver_max_iter = 500
 
-    # ?? works better with these globalization settings if its breaking
-    #ocp.solver_options.globalization_fixed_step_length = 0.5 
-    #ocp.solver_options.globalization_full_step_dual = 1        # keep duals stable when primals take smaller steps
     ocp.solver_options.globalization = 'MERIT_BACKTRACKING' 
     ocp.solver_options.levenberg_marquardt = 1e-1
     ocp.solver_options.nlp_solver_exact_hessian = False
-    #ocp.solver_options.sim_method_num_steps = 5
 
     # ease the NLP stopping a bit around where you plateau
     ocp.solver_options.nlp_solver_tol_stat  = 5e-3
@@ -74,8 +70,6 @@ def setup_ocp_solver(pcc_arm, MPC_PARAMETERS, N, Tf):
     # bounds
     lbu = u_bound[0] * np.ones(nu)
     ubu = u_bound[1] * np.ones(nu)
-    #lbu[5]=0 #simulate broken tendon
-    #ubu[5]=0
     ocp.constraints.lbu = lbu
     ocp.constraints.ubu = ubu
 
@@ -89,22 +83,7 @@ def setup_ocp_solver(pcc_arm, MPC_PARAMETERS, N, Tf):
 
     acados_ocp_solver = AcadosOcpSolver(ocp)
 
-   # acados_ocp_solver.options_set('globalization_use_SOC', 1)
-
     return acados_ocp_solver
-
-
-def setup_acados_integrator(pcc_arm, dt):
-    """
-    Optional external simulator (you can keep using your own integrator_sim if you prefer).
-    """
-    sim = AcadosSim()
-    sim.model = export_pcc_acados_model(pcc_arm, name="pcc_arm_sim")
-    sim.solver_options.T = dt
-    sim.solver_options.num_steps = 2
-    sim.code_export_directory = 'c_generated_code_pcc_sim'
-    return AcadosSimSolver(sim)
-
 
 def mpc_step_acados(ocp_solver, x0, q_goal, p_adaptive,N, u_bound, u_prev=None):
 
