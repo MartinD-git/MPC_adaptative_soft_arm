@@ -38,8 +38,8 @@ MPC_PARAMETERS = {
     "N": int(np.ceil(horizon_time/dt)),
     "Q":  np.diag([1e2]*3 + [1]*2*num_segments),
     "Qf": np.diag([1e2]*3 + [1]*2*num_segments),  # stronger terminal weight helps convergence
-    "R": 1e-5*np.eye(3*num_segments),
-    "u_bound": [2,200],#[0,tension_bound],
+    "R": 1e-1*np.eye(3*num_segments),
+    "u_bound": [2,200],#[2,tension_bound],
     "N_p_adaptative": 20, #number of previous steps to consider for parameter estimation
 }
 

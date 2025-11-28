@@ -32,7 +32,7 @@ rho_liquid = rho_water  # density of the surrounding fluid
 horizon_time = 3  #seconds
 dt = 0.1  #seconds
 
-num_segments = 3
+num_segments = 2
 
 MPC_PARAMETERS = {
     "N": int(np.ceil(horizon_time/dt)),
@@ -42,28 +42,47 @@ MPC_PARAMETERS = {
     "u_bound": [2,200],#[0,tension_bound],
     "N_p_adaptative": 20, #number of previous steps to consider for parameter estimation
 }
+if num_segments ==3:
+    SIM_PARAMETERS = {
+        "dt": dt,
+        "T": 50,#180
+        "x0": np.array([ # phi, theta
+            np.deg2rad(1e1), np.deg2rad(1e1), np.deg2rad(1e1), np.deg2rad(1e1), np.deg2rad(1e1), np.deg2rad(1e1), # phi is angle at base, theta is curvature
+            0, 0, 0, 0, 0, 0
+        ]),
+        "T_loop": 15,  # seconds
+        "radius_trajectory": 0.4*L,
+        "center_trajectory": np.array([1+0.2, 0, 1.4+0.8])*L,
+        "rotation_angles_trajectory": np.array([np.deg2rad(0), np.deg2rad(60), np.deg2rad(0)]),
+    }
+elif num_segments ==2:
+    SIM_PARAMETERS = {
+        "dt": dt,
+        "T": 50,#180
+        "x0": np.array([ # phi, theta
+            np.deg2rad(1e1), np.deg2rad(1e1), # segment 1
+            np.deg2rad(1e1), np.deg2rad(1e1), # segment 2
+            0, 0, 0, 0
+        ]),
+        "T_loop": 15,  # seconds
+        "radius_trajectory": 0.4*L,
+        "center_trajectory": np.array([1, 0, 1.4])*L,
+        "rotation_angles_trajectory": np.array([np.deg2rad(0), np.deg2rad(60), np.deg2rad(0)]),
+    }
+if num_segments ==3:
+    sigma_k = [np.pi/3, np.pi, 5*np.pi/3,0, 2*np.pi/3, 4*np.pi/3, np.pi/3, np.pi, 5*np.pi/3]  # tendon routing angles
+elif num_segments ==2:
+    sigma_k = [np.pi/3, np.pi, 5*np.pi/3,0, 2*np.pi/3, 4*np.pi/3]  # tendon routing angles
 
-SIM_PARAMETERS = {
-    "dt": dt,
-    "T": 50,#180
-    "x0": np.array([ # phi, theta
-        np.deg2rad(1e1), np.deg2rad(1e1), np.deg2rad(1e1), np.deg2rad(1e1), np.deg2rad(1e1), np.deg2rad(1e1), # phi is angle at base, theta is curvature
-        0, 0, 0, 0, 0, 0
-    ]),
-    "T_loop": 15,  # seconds
-    "radius_trajectory": 0.4*L,
-    "center_trajectory": np.array([1+0.2, 0, 1.4+0.8])*L,
-    "rotation_angles_trajectory": np.array([np.deg2rad(0), np.deg2rad(60), np.deg2rad(0)]),
-}
 
 ARM_PARAMETERS = {
-    "L_segs": [L, L, L],
+    "L_segs": [L]*num_segments,
     "r_o": r_o,
     "r_i": r_i,
-    "sigma_k": [np.pi/3, np.pi, 5*np.pi/3,0, 2*np.pi/3, 4*np.pi/3, np.pi/3, np.pi, 5*np.pi/3],  # tendon routing angles
+    "sigma_k": sigma_k,  # tendon routing angles
     "rho_arm": rho,
-    "d_eq": [d, d, d],
-    "K": np.diag([k_phi, k_theta, k_phi, k_theta, k_phi, k_theta]),
+    "d_eq": [d]*num_segments,
+    "K": np.diag([k_phi, k_theta]*num_segments),
     "num_segments": num_segments,
     "rho_liquid": rho_liquid,
     "r_d": r_d,

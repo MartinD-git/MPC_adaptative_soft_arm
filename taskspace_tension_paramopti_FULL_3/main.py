@@ -81,7 +81,6 @@ def main():
                     u_prev = pcc_arm.history_u_tendon[:,pcc_arm.history_index-1]
 
                 u_prev = None
-                print("Current state:", pcc_arm.current_state)
                 u0, x1 = mpc_step_acados(ocp_solver, pcc_arm.current_state, q_goal_value, adapt_param, N, MPC_PARAMETERS['u_bound'], u_prev)
 
                 loop_time_1 = time.perf_counter()

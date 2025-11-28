@@ -17,6 +17,9 @@ def export_pcc_acados_model(pcc_arm, name="pcc_arm_ocp"):
     model.u = u
     model.p_global = p_global
     model.f_expl_expr = pcc_arm.dynamics_func(x, u, p_global)
+    xdot = ca.SX.sym('xdot', nx)
+    model.xdot = xdot
+    model.f_impl_expr = xdot - model.f_expl_expr
 
     return model
 
@@ -50,9 +53,9 @@ def setup_ocp_solver(pcc_arm, MPC_PARAMETERS, N, Tf):
     ocp.solver_options.regularize_method = 'MIRROR'
     ocp.solver_options.levenberg_marquardt = 1e-1
     ocp.solver_options.nlp_solver_exact_hessian = False
-    ocp.solver_options.integrator_type = 'IRK'          # ERK
-    #ocp.solver_options.sim_method_num_stages = 4        # RK4-style
-    #ocp.solver_options.sim_method_num_steps = 1         # or 5–10 for stiff dynamics
+    ocp.solver_options.integrator_type = 'ERK'          # ERK
+    ocp.solver_options.sim_method_num_stages = 4        # RK4-style
+    ocp.solver_options.sim_method_num_steps = 5         # or 5–10 for stiff dynamics
 
     # ease the NLP stopping a bit around where you plateau
     ocp.solver_options.nlp_solver_tol_stat  = 5e-4

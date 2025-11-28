@@ -52,12 +52,12 @@ def main():
 
     param_solver, _ = create_adaptative_parameters_solver_SQP(pcc_arm, MPC_PARAMETERS['N_p_adaptative'])
     #bounds:
-    #lb_adaptive_abs = ca.vertcat(-0.9*pcc_arm.m,-0.9*pcc_arm.d_eq[0], -0.9*pcc_arm.d_eq[1], -0.9*pcc_arm.K[1,1], -0.9*pcc_arm.K[3,3])
-    lb_adaptive = ca.vertcat(-0.9*pcc_arm.m,-0.9*pcc_arm.d_eq[0], -0.9*pcc_arm.d_eq[1], -0.9*pcc_arm.d_eq[2], -0.8*pcc_arm.K[1,1], -0.8*pcc_arm.K[3,3], -0.8*pcc_arm.K[5,5])
+    if pcc_arm.num_segments ==2:
+        lb_adaptive_abs = ca.vertcat(-0.9*pcc_arm.m,-0.9*pcc_arm.d_eq[0], -0.9*pcc_arm.d_eq[1], -0.9*pcc_arm.K[1,1], -0.9*pcc_arm.K[3,3])
+    elif pcc_arm.num_segments ==3:
+        lb_adaptive_abs = ca.vertcat(-0.9*pcc_arm.m,-0.9*pcc_arm.d_eq[0], -0.9*pcc_arm.d_eq[1], -0.9*pcc_arm.d_eq[2], -0.8*pcc_arm.K[1,1], -0.8*pcc_arm.K[3,3], -0.8*pcc_arm.K[5,5])
     ub_adaptive = [1e6]*pcc_arm.num_adaptive_params
-    #lb_adaptive_abs = ca.vertcat( -0.9*pcc_arm.K[1,1], -0.9*pcc_arm.K[3,3])
 
-    #ub_adaptive = [1e6]*pcc_arm.num_adaptive_params
     error_list = []
     instant_error_list = []
     opti_index = [0]
@@ -70,8 +70,6 @@ def main():
                 # MPC
                 loop_time_0 = time.perf_counter()
 
-                #q_goal_value = q_tot_traj[t:t+N+1,:].T
-                #q_goal_value = np.vstack((xyz_circular_traj[t:t+N+1,:].T,q_tot_traj[t:t+N+1,2*pcc_arm.num_segments:].T))  # shifted by one time step
                 q_goal_value = np.vstack((xyz_circular_traj[t:t+N+1,:].T,np.zeros((2*pcc_arm.num_segments,N+1))))  # zero velocities
                 if t == 0:
                     adapt_param = pcc_arm.history_adaptive_param[:,0]
@@ -179,13 +177,13 @@ def create_adaptative_parameters_solver_SQP(arm,N):
     p_adaptative_prev = p[-arm.num_adaptive_params:]
 
     cost=0
-    weights = ca.diag([1]*4 + [1]*4 + [1]*4)  #weight more the curvature states
+    #weights = ca.diag([1]*4*arm.num_segments)  #weight more the curvature states
     for i in range(N):
         p_global = ca.vertcat(state_history[:,-(i+2)], p_adaptative)
         q_pred = arm.integrator(x0=state_history[:,-(i+2)], u=u_history[:,-(i+2)], p_global=p_global)['xf']
-        cost += ca.sumsqr(weights @ (q_pred - state_history[:,-(i+1)]))  #prediction error
+        cost += ca.sumsqr(q_pred - state_history[:,-(i+1)])  #prediction errorweights @ 
 
-    weights_difference = ca.diag([10]*1 + [1]*3 + [100]*3)  #weight more the mass and stiffness changes
+    weights_difference = ca.diag([10]*1 + [1]*arm.num_segments + [100]*arm.num_segments)  #weight more the mass and stiffness changes
     cost +=  ca.sumsqr(weights_difference @ (p_adaptative - p_adaptative_prev))
 
     nlp = {'x': p_adaptative, 'p': p, 'f': cost}

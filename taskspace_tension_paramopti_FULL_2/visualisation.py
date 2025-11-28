@@ -74,16 +74,20 @@ def history_plot(pcc_arm,u_bound,xyz_traj=None, save=False, opti_index=None):
             plt.savefig(out_dir + f"States_Torques.png", dpi=200)
 
     # adaptative parameters plot
-    initial_param = np.array([pcc_arm.m, pcc_arm.d_eq[0], pcc_arm.d_eq[1], pcc_arm.d_eq[2], pcc_arm.K[1,1], pcc_arm.K[3,3], pcc_arm.K[5,5]])
+    if pcc_arm.num_segments ==3:
+        titles = ['Mass', 'Damping Segment 1', 'Damping Segment 2', 'Damping Segment 3', 'Stiffness Segment 1', 'Stiffness Segment 2', 'Stiffness Segment 3']
+    elif pcc_arm.num_segments ==2:
+        titles = ['Mass', 'Damping Segment 1', 'Damping Segment 2', 'Stiffness Segment 1', 'Stiffness Segment 2']
+    initial_param = np.concatenate(([pcc_arm.m], pcc_arm.d_eq, np.diag(pcc_arm.K)[1::2]))
 
     fig, axes = plt.subplots(4, 2, figsize=(12, 10), sharex=True)
     axes = axes.ravel()
 
-    for i in range(7):
+    for i in range(pcc_arm.num_adaptive_params):
         ax = axes[i]
         ax.plot(time, history_param[:, i], label=f'Param {i+1}')
         ax.axhline(initial_param[i], linestyle='--', label='Initial Value')  # horizontal reference line
-        ax.set_title(f'Adaptive Parameter {i+1} over Time')
+        ax.set_title(f'Adaptive {titles[i]} over Time')
         if i >= 2:  # bottom row
             ax.set_xlabel('Time [s]')
         if i % 2 == 0:  # left column

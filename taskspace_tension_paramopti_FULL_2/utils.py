@@ -150,8 +150,12 @@ def pcc_dynamics(arm,q, q_dot, tips, jacobians,water=False):
 
     p_adaptative = ca.SX.sym('p_adaptative', arm.num_adaptive_params, 1)
     d_eq = ca.vertcat(*arm.d_eq)
-    d_eq = d_eq + p_adaptative[1:4]# damping adaptative
-    K = arm.K + ca.diag(ca.vertcat(0, p_adaptative[4], 0, p_adaptative[5], 0, p_adaptative[6]))  # stiffness adaptative
+    if arm.num_segments ==2:
+        d_eq = d_eq + p_adaptative[1:3]# damping adaptative
+        K = arm.K + ca.diag(ca.vertcat(0, p_adaptative[3], 0, p_adaptative[4]))  # stiffness adaptative
+    elif arm.num_segments ==3:
+        d_eq = d_eq + p_adaptative[1:4]# damping adaptative
+        K = arm.K + ca.diag(ca.vertcat(0, p_adaptative[4], 0, p_adaptative[5], 0, p_adaptative[6]))  # stiffness adaptative
 
     J = ca.vertcat(*jacobians)
 
@@ -169,8 +173,10 @@ def pcc_dynamics(arm,q, q_dot, tips, jacobians,water=False):
             Aproj = (2*arm.r_o)*arm.L_segs[i] # projected area per segment
             D_fluid += 0.5 * rho_fluid * arm.C_d * Aproj * vmag * (Ji.T @ Ji)
             
-    
-    D_integrand = (jacobians[0].T @ jacobians[0]) * d_eq[0]+(jacobians[1].T @ jacobians[1]) * d_eq[1]+ (jacobians[2].T @ jacobians[2]) * d_eq[2] + D_fluid
+    D_integrand = ca.SX.zeros(2*num_segments, 2*num_segments)
+    for i in range(num_segments):
+        D_integrand += (jacobians[i].T @ jacobians[i]) * d_eq[i]
+    D_integrand += D_fluid
 
     G_integrand = (m_buoy-m+p_adaptative[0]) * sum(ca.dot(g_vec, tip) for tip in tips)
     M_integrand = (m+m_displaced+p_adaptative[0]) * (J.T @ J)
@@ -188,7 +194,7 @@ def pcc_dynamics(arm,q, q_dot, tips, jacobians,water=False):
 
     M_func = ca.Function('M_func', [q, p_adaptative[0]], [M])
     G_func = ca.Function('G_func', [q, p_adaptative[0]], [G])
-    D_func = ca.Function('D_func', [q,q_dot, p_adaptative[1:4]], [D])
+    D_func = ca.Function('D_func', [q,q_dot, p_adaptative[1:arm.num_segments+1]], [D])
     arm.M_func = M_func
 
     # Coriolis C
@@ -213,7 +219,7 @@ def pcc_dynamics(arm,q, q_dot, tips, jacobians,water=False):
     M_term= M_func(q0[:2*num_segments],p_adaptative[0])+1e-6* ca.DM.eye(2*num_segments)
     C_term= C_vec_func(q0[:2*num_segments], q0[2*num_segments:], p_adaptative[0])
     G_term= G_func(q0[:2*num_segments], p_adaptative[0])
-    D_term= D_func(q0[:2*num_segments], q0[2*num_segments:], p_adaptative[1:4]) @ q_dot_from_x
+    D_term= D_func(q0[:2*num_segments], q0[2*num_segments:], p_adaptative[1:arm.num_segments+1]) @ q_dot_from_x
     K_term= K @ q_from_x
   
     J_tendon = ca.SX.zeros((3*num_segments, 2*num_segments))
