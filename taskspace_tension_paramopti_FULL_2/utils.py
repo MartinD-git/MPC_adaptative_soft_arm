@@ -180,7 +180,7 @@ def pcc_dynamics(arm,q, q_dot, tips, jacobians,water=False):
 
     G_integrand = (m_buoy-m+p_adaptative[0]) * sum(ca.dot(g_vec, tip) for tip in tips)
     M_integrand = (m+m_displaced+p_adaptative[0]) * (J.T @ J)
-    I_phi = 1e-5  # tune this
+    I_phi = 1e-4  # tune this
     M_reg = ca.DM.zeros(2*num_segments, 2*num_segments)
     for i in range(num_segments):
         M_reg[2*i, 2*i] = I_phi
@@ -230,7 +230,7 @@ def pcc_dynamics(arm,q, q_dot, tips, jacobians,water=False):
             phi =q0[2*i]
             theta = q0[1+2*i]
             J_tendon[k+3*i,2*i] = -theta*arm.r_d*ca.sin(arm.sigma_k[k+3*i]-phi)
-            J_tendon[k+3*i,2*i+1] = -arm.r_d*ca.cos(arm.sigma_k[k+3*i]-phi)
+            J_tendon[k+3*i,2*i+1] = arm.r_d*ca.cos(arm.sigma_k[k+3*i]-phi)
 
     #added for speed
     rhs = J_tendon.T @ u_tendon - C_term - G_term - D_term - K_term

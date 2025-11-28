@@ -45,6 +45,14 @@ def main():
     print("Generating trajectory")
     xyz_circular_traj, dottet_plotting_traj = generate_total_trajectory(pcc_arm,SIM_PARAMETERS,N,stabilizing_time=0, loop_time=SIM_PARAMETERS['T_loop'])
     print("Trajectory is generated")
+    # point_target = np.array([ # phi, theta
+    #         np.deg2rad(50), np.deg2rad(50), # segment 1
+    #         np.deg2rad(50), np.deg2rad(50), # segment 2
+    #     ])
+    # point_target = pcc_arm.end_effector(point_target).full().flatten()
+    # xyz_circular_traj = np.tile(point_target.reshape(1,-1), (num_iter,1))
+    # dottet_plotting_traj = xyz_circular_traj[:, :3]
+    
     
     # Create Acados OCP solver
     Tf = N * SIM_PARAMETERS['dt']
