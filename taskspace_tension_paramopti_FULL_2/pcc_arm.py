@@ -30,7 +30,7 @@ class PCCSoftArm:
         self.history_pred = np.zeros((4*self.num_segments, history_size))
         self.num_adaptive_params =  2*self.num_segments + 1 # damping per segment + bending stiffness per segment
         self.history_adaptive_param = np.zeros((self.num_adaptive_params, history_size+1))
-        self.m = self.rho * np.pi*(self.r_o**2 - self.r_i**2) * self.L_segs[0] # mass of each segment
+        self.m = arm_param_dict['m']
         
 
         self.s = ca.SX.sym('s')
@@ -39,7 +39,7 @@ class PCCSoftArm:
 
         # compute the kinematics
         tips, jacobians = pcc_forward_kinematics(self.s, q, self.L_segs,self.num_segments)
-        self.end_effector = ca.Function('end_effector', [q], [ca.substitute(tips[2], self.s, 1)])
+        self.end_effector = ca.Function('end_effector', [q], [ca.substitute(tips[self.num_segments-1], self.s, 1)])
         print("Kinematics done")
 
         # shape function for visualization

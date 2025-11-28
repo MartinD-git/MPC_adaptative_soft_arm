@@ -42,13 +42,14 @@ def setup_ocp_solver(pcc_arm, MPC_PARAMETERS, N, Tf):
     ocp.solver_options.nlp_solver_max_iter = 500
 
     # ?? works better with these globalization settings if its breaking
-    ocp.solver_options.globalization_fixed_step_length = 0.5 
-    ocp.solver_options.globalization_full_step_dual = 1        # keep duals stable when primals take smaller steps
-    # ocp.solver_options.globalization = 'MERIT_BACKTRACKING' 
+    #ocp.solver_options.globalization_fixed_step_length = 0.5 
+    #ocp.solver_options.globalization_full_step_dual = 1        # keep duals stable when primals take smaller steps
+    ocp.solver_options.globalization = 'MERIT_BACKTRACKING' 
     # ocp.solver_options.globalization_alpha_min = 0.05
     # ocp.solver_options.globalization_alpha_reduction = 0.7
     ocp.solver_options.regularize_method = 'MIRROR'
     ocp.solver_options.levenberg_marquardt = 1e-1
+    ocp.solver_options.nlp_solver_exact_hessian = False
 
     # ease the NLP stopping a bit around where you plateau
     ocp.solver_options.nlp_solver_tol_stat  = 5e-4
@@ -107,7 +108,7 @@ def setup_acados_integrator(pcc_arm, dt):
     return AcadosSimSolver(sim)
 
 
-def mpc_step_acados(ocp_solver, x0, q_goal, p_adaptive,N, u_prev, u_bound):
+def mpc_step_acados(ocp_solver, x0, q_goal, p_adaptive,N, u_bound, u_prev=None):
 
     nx = ocp_solver.acados_ocp.dims.nx
     nu = ocp_solver.acados_ocp.dims.nu
@@ -127,14 +128,11 @@ def mpc_step_acados(ocp_solver, x0, q_goal, p_adaptive,N, u_prev, u_bound):
     for i in range(N):
         yref_i = np.hstack([q_goal[:, i], np.zeros(nu)])
         ocp_solver.set(i, 'yref', yref_i)
-        # bounds
-        lbu_local = u_prev - 3*(i+1)*np.ones(nu)
-        ubu_local = u_prev + 3*(i+1)*np.ones(nu)
-
-        #print(np.max(np.vstack((lbu_local, lbu)),axis=0))
-        #print(np.min(np.vstack((ubu_local, ubu)),axis=0))
-        ocp_solver.constraints_set(i, 'lbu', np.max(np.vstack((lbu_local, lbu)),axis=0))
-        ocp_solver.constraints_set(i, 'ubu', np.min(np.vstack((ubu_local, ubu)),axis=0))
+        if u_prev is not None:
+            lbu_local = u_prev - 3*(i+1)*np.ones(nu)
+            ubu_local = u_prev + 3*(i+1)*np.ones(nu)
+            ocp_solver.constraints_set(i, 'lbu', np.max(np.vstack((lbu_local, lbu)),axis=0))
+            ocp_solver.constraints_set(i, 'ubu', np.min(np.vstack((ubu_local, ubu)),axis=0))
     ocp_solver.set(N, 'yref', q_goal[:, N])  # terminal
 
     # solve

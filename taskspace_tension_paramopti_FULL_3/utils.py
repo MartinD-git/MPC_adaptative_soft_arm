@@ -17,7 +17,7 @@ def sinc_cosc(u, eps=1e-4):
     sinc_ser = 1 - (u2*(1/6.0)) + (u4*(1/120.0))
     # cosc(u)  = u/2 - u^3/24 + u^5/720
     cosc_ser = (u*(1/2.0)) - (u*u2*(1/24.0)) + (u4*u*(1/720.0))
-
+    
     # Exact away from 0
     sinc_ex  = ca.sin(u) / u
     cosc_ex  = (1 - ca.cos(u)) / u
@@ -140,7 +140,6 @@ def pcc_dynamics(arm,q, q_dot, tips, jacobians,water=False):
 
     m = arm.m
 
-
     num_segments = arm.num_segments
     s = arm.s
     M = ca.SX.zeros(2*num_segments, 2*num_segments)
@@ -150,7 +149,8 @@ def pcc_dynamics(arm,q, q_dot, tips, jacobians,water=False):
     d_eq = arm.d_eq
 
     p_adaptative = ca.SX.sym('p_adaptative', arm.num_adaptive_params, 1)
-    d_eq += p_adaptative[1:4]  # damping adaptative
+    d_eq = ca.vertcat(*arm.d_eq)
+    d_eq = d_eq + p_adaptative[1:4]# damping adaptative
     K = arm.K + ca.diag(ca.vertcat(0, p_adaptative[4], 0, p_adaptative[5], 0, p_adaptative[6]))  # stiffness adaptative
 
     J = ca.vertcat(*jacobians)
@@ -236,7 +236,7 @@ def pcc_dynamics(arm,q, q_dot, tips, jacobians,water=False):
 
     return ca.Function('pcc_f', [x, u_tendon, p_global], [x_dot])
 
-def dynamics2integrator(pcc_arm,f,n_substeps=10):
+def dynamics2integrator(pcc_arm,f,n_substeps=1):
     x0 = ca.MX.sym('x0', 4*pcc_arm.num_segments)
     u  = ca.MX.sym('u', 3*pcc_arm.num_segments)
     q0 = ca.MX.sym('q0', 4*pcc_arm.num_segments) 

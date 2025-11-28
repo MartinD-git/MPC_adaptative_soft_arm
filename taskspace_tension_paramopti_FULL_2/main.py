@@ -14,7 +14,7 @@ id 5 is zero
 radisu pulley = 6mm
 measure length should be 3*105
 d = 40 mm
-tendon radius is 36mm
+tendon diameter is 36mm
 
 '''
 
@@ -43,7 +43,7 @@ def main():
 
     #generate circular trajectory (N,4*num_segments)
     print("Generating trajectory")
-    q_tot_traj, xyz_circular_traj, dottet_plotting_traj = generate_total_trajectory(pcc_arm,SIM_PARAMETERS,N,stabilizing_time=0, loop_time=SIM_PARAMETERS['T_loop'])
+    xyz_circular_traj, dottet_plotting_traj = generate_total_trajectory(pcc_arm,SIM_PARAMETERS,N,stabilizing_time=0, loop_time=SIM_PARAMETERS['T_loop'])
     print("Trajectory is generated")
     
     # Create Acados OCP solver
@@ -75,16 +75,15 @@ def main():
                 q_goal_value = np.vstack((xyz_circular_traj[t:t+N+1,:].T,np.zeros((2*pcc_arm.num_segments,N+1))))  # zero velocities
                 if t == 0:
                     adapt_param = pcc_arm.history_adaptive_param[:,0]
-                    u_prev = pcc_arm.history_u_tendon[:, 0]
+                    u_prev = np.zeros((3*pcc_arm.num_segments))
                 else:
                     adapt_param = pcc_arm.history_adaptive_param[:,pcc_arm.history_index-1]
-                    u_prev = pcc_arm.history_u_tendon[:, pcc_arm.history_index-1]
+                    u_prev = pcc_arm.history_u_tendon[:,pcc_arm.history_index-1]
 
-                
-                #u0, x1 = mpc_step_acados(ocp_solver, pcc_arm.current_state, q_goal_value, adapt_param, N, u_prev, MPC_PARAMETERS['u_bound'])
-                x1 = pcc_arm.current_state
+                u_prev = None
+                u0, x1 = mpc_step_acados(ocp_solver, pcc_arm.current_state, q_goal_value, adapt_param, N, MPC_PARAMETERS['u_bound'], u_prev)
+
                 loop_time_1 = time.perf_counter()
-                u0=0 #simulate broken tendon
                 pcc_arm.log_history(np.zeros(2*pcc_arm.num_segments), q_goal_value[:,0],u0, x1)
 
                 # apply the first control input to the real system
@@ -153,20 +152,6 @@ def main():
     print("--- %s seconds ---" % (time.perf_counter() - start_time))
     save = False
     out_dir = "csv_and_plots_adapt/"
-    plt.figure()
-    error_list = np.array(error_list)
-    if len(opti_index)>1:
-        error_list[:opti_index[1]-1] = error_list[opti_index[1]]
-    plt.plot(np.arange(len(error_list))*pcc_arm.dt,error_list, label='Mean squared error over last steps')
-    plt.plot(np.arange(len(instant_error_list))*pcc_arm.dt,instant_error_list, label='Instant error')
-    plt.legend()
-    for i in range(1,len(opti_index)):
-        plt.axvline(x=opti_index[i]*pcc_arm.dt,color='r',linestyle='--',alpha=0.5)
-    plt.title("Error over time")
-    plt.xlabel("Time step")
-    plt.ylabel("Error")
-    if save:
-        plt.savefig(out_dir + "error_over_time.png", dpi=200)
 
     plt.figure()
     plt.plot(np.arange(len(loop_time))*pcc_arm.dt,loop_time)
@@ -183,35 +168,6 @@ def main():
 
     history_plot(pcc_arm,MPC_PARAMETERS['u_bound'],dottet_plotting_traj, save=save,opti_index=opti_index)
 
-def create_adaptative_parameters_solver0(arm,N):
-
-    p_adaptative = ca.MX.sym('p_adaptative', arm.num_adaptive_params)
-    p= ca.MX.sym('p', (4*arm.num_segments + 3*arm.num_segments)*(N+1)+arm.num_adaptive_params) #state, control, prev adaptative params
-    
-    state_history = p[:4*arm.num_segments*(N+1)].reshape((4*arm.num_segments,N+1))
-    u_history = p[4*arm.num_segments*(N+1):-arm.num_adaptive_params,:].reshape((3*arm.num_segments,N+1))
-    p_adaptative_prev = p[-arm.num_adaptive_params:]
-
-    cost=0
-    weights = ca.diag([1]*4 + [1]*4)  #weight more the curvature states
-    for i in range(N):
-        p_global = ca.vertcat(state_history[:,-(i+2)], p_adaptative)
-        q_pred = arm.integrator(x0=state_history[:,-(i+2)], u=u_history[:,-(i+2)], p_global=p_global)['xf']
-        cost += ca.sumsqr(weights @ (q_pred - state_history[:,-(i+1)]))  #prediction error
-
-
-    nlp = {'x': p_adaptative, 'p': p, 'f': cost}
-
-    opts = {
-        'ipopt.warm_start_init_point': 'yes',
-        'ipopt.acceptable_iter': 1,
-        'ipopt.max_wall_time': 0.1,
-        'ipopt.print_level': 0, 'print_time': 0,
-    }
-    
-    solver = ca.nlpsol('adaptative_solver', 'ipopt', nlp, opts)
-
-    return solver, ca.Function('error_func', [p_adaptative, p], [cost])
 
 def create_adaptative_parameters_solver_SQP(arm,N):
 

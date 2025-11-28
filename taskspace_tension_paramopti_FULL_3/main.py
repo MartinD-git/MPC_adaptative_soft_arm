@@ -75,11 +75,14 @@ def main():
                 q_goal_value = np.vstack((xyz_circular_traj[t:t+N+1,:].T,np.zeros((2*pcc_arm.num_segments,N+1))))  # zero velocities
                 if t == 0:
                     adapt_param = pcc_arm.history_adaptive_param[:,0]
+                    u_prev = np.zeros((3*pcc_arm.num_segments))
                 else:
                     adapt_param = pcc_arm.history_adaptive_param[:,pcc_arm.history_index-1]
+                    u_prev = pcc_arm.history_u_tendon[:,pcc_arm.history_index-1]
 
-                
-                u0, x1 = mpc_step_acados(ocp_solver, pcc_arm.current_state, q_goal_value, adapt_param, N, MPC_PARAMETERS['u_bound'])
+                u_prev = None
+                print("Current state:", pcc_arm.current_state)
+                u0, x1 = mpc_step_acados(ocp_solver, pcc_arm.current_state, q_goal_value, adapt_param, N, MPC_PARAMETERS['u_bound'], u_prev)
 
                 loop_time_1 = time.perf_counter()
                 pcc_arm.log_history(np.zeros(2*pcc_arm.num_segments), q_goal_value[:,0],u0, x1)

@@ -2,19 +2,25 @@ import numpy as np
 
 # we consider a segment as a cylinder:
 #material: TPU
-E= #Young modulus23e6
+E= 23e6 #Young modulus23e6
 rho=1220 #density
 
 #arm
-r_o     = 0.04 # outer radius [m]
-r_d = 0.036  # radius at which tendons are located
+r_o     = 0.04/2 # outer radius [m]
+t_wall  = 0.002 # wall thickness [m]
+r_i     = r_o - t_wall
+r_d = 0.036/2  # radius at which tendons are located
 L = 0.315 #length of each segment
 
-m =  #mass of each segment
-k_phi = 
-k_theta =  #gotten from static simulation
-xi=
-d =
+A= np.pi*(r_o**2 - r_i**2)  # area
+I = np.pi*(r_o**4 - r_i**4)/4 #second moment of area
+m = rho * np.pi*(r_o**2) * L*0.5 #mass of each segment estimated 0.5 infill
+
+print("Mass of each segment:", m)
+k_phi = 0
+k_theta = 0.356*6 #gotten from static simulation
+xi=0.05
+d = 2*xi*1.875**2 * np.sqrt((rho*A*E*I)/(L**2))
 
 
 rho_water = 1000 #density of water
@@ -30,10 +36,10 @@ num_segments = 3
 
 MPC_PARAMETERS = {
     "N": int(np.ceil(horizon_time/dt)),
-    "Q":  np.diag([1e2]*3 + [1]*2*num_segments),
-    "Qf": np.diag([1e2]*3 + [1]*2*num_segments),  # stronger terminal weight helps convergence
-    "R": 1e-5*np.eye(3*num_segments),
-    "u_bound": [2,40],#[0,tension_bound],
+    "Q":  np.diag([5e2]*3 + [1]*2*num_segments),
+    "Qf": np.diag([5e2]*3 + [1]*2*num_segments),  # stronger terminal weight helps convergence
+    "R": 1e-4*np.eye(3*num_segments),
+    "u_bound": [2,200],#[0,tension_bound],
     "N_p_adaptative": 20, #number of previous steps to consider for parameter estimation
 }
 
@@ -41,7 +47,7 @@ SIM_PARAMETERS = {
     "dt": dt,
     "T": 50,#180
     "x0": np.array([ # phi, theta
-        np.deg2rad(1e-3), np.deg2rad(1e-3), np.deg2rad(1e-3), np.deg2rad(1e-3), np.deg2rad(1e-3), np.deg2rad(1e-3), # phi is angle at base, theta is curvature
+        np.deg2rad(1e1), np.deg2rad(1e1), np.deg2rad(1e1), np.deg2rad(1e1), np.deg2rad(1e1), np.deg2rad(1e1), # phi is angle at base, theta is curvature
         0, 0, 0, 0, 0, 0
     ]),
     "T_loop": 15,  # seconds
@@ -53,6 +59,7 @@ SIM_PARAMETERS = {
 ARM_PARAMETERS = {
     "L_segs": [L, L, L],
     "r_o": r_o,
+    "r_i": r_i,
     "sigma_k": [np.pi/3, np.pi, 5*np.pi/3,0, 2*np.pi/3, 4*np.pi/3, np.pi/3, np.pi, 5*np.pi/3],  # tendon routing angles
     "rho_arm": rho,
     "d_eq": [d, d, d],
@@ -60,5 +67,6 @@ ARM_PARAMETERS = {
     "num_segments": num_segments,
     "rho_liquid": rho_liquid,
     "r_d": r_d,
+    "m": m,
 }
 

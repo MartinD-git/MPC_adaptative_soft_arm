@@ -36,10 +36,10 @@ num_segments = 3
 
 MPC_PARAMETERS = {
     "N": int(np.ceil(horizon_time/dt)),
-    "Q":  np.diag([1e3]*3 + [1]*2*num_segments),
-    "Qf": np.diag([1e3]*3 + [1]*2*num_segments),  # stronger terminal weight helps convergence
+    "Q":  np.diag([1e2]*3 + [1]*2*num_segments),
+    "Qf": np.diag([1e2]*3 + [1]*2*num_segments),  # stronger terminal weight helps convergence
     "R": 1e-5*np.eye(3*num_segments),
-    "u_bound": [2,300],#[0,tension_bound],
+    "u_bound": [2,200],#[0,tension_bound],
     "N_p_adaptative": 20, #number of previous steps to consider for parameter estimation
 }
 
@@ -50,7 +50,7 @@ SIM_PARAMETERS = {
         np.deg2rad(1e1), np.deg2rad(1e1), np.deg2rad(1e1), np.deg2rad(1e1), np.deg2rad(1e1), np.deg2rad(1e1), # phi is angle at base, theta is curvature
         0, 0, 0, 0, 0, 0
     ]),
-    "T_loop": 5,  # seconds
+    "T_loop": 15,  # seconds
     "radius_trajectory": 0.4*L,
     "center_trajectory": np.array([1+0.2, 0, 1.4+0.8])*L,
     "rotation_angles_trajectory": np.array([np.deg2rad(0), np.deg2rad(60), np.deg2rad(0)]),
