@@ -166,35 +166,6 @@ def main():
 
     history_plot(pcc_arm,MPC_PARAMETERS['u_bound'],dottet_plotting_traj, save=save,opti_index=opti_index)
 
-def create_adaptative_parameters_solver0(arm,N):
-
-    p_adaptative = ca.MX.sym('p_adaptative', arm.num_adaptive_params)
-    p= ca.MX.sym('p', (4*arm.num_segments + 3*arm.num_segments)*(N+1)+arm.num_adaptive_params) #state, control, prev adaptative params
-    
-    state_history = p[:4*arm.num_segments*(N+1)].reshape((4*arm.num_segments,N+1))
-    u_history = p[4*arm.num_segments*(N+1):-arm.num_adaptive_params,:].reshape((3*arm.num_segments,N+1))
-    p_adaptative_prev = p[-arm.num_adaptive_params:]
-
-    cost=0
-    weights = ca.diag([1]*4 + [1]*4)  #weight more the curvature states
-    for i in range(N):
-        p_global = ca.vertcat(state_history[:,-(i+2)], p_adaptative)
-        q_pred = arm.integrator(x0=state_history[:,-(i+2)], u=u_history[:,-(i+2)], p_global=p_global)['xf']
-        cost += ca.sumsqr(weights @ (q_pred - state_history[:,-(i+1)]))  #prediction error
-
-
-    nlp = {'x': p_adaptative, 'p': p, 'f': cost}
-
-    opts = {
-        'ipopt.warm_start_init_point': 'yes',
-        'ipopt.acceptable_iter': 1,
-        'ipopt.max_wall_time': 0.1,
-        'ipopt.print_level': 0, 'print_time': 0,
-    }
-    
-    solver = ca.nlpsol('adaptative_solver', 'ipopt', nlp, opts)
-
-    return solver, ca.Function('error_func', [p_adaptative, p], [cost])
 
 def create_adaptative_parameters_solver_SQP(arm,N):
 
