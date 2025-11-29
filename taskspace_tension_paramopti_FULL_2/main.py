@@ -8,13 +8,9 @@ b = 0.14153846153
 
 I = a*tau + b = a*r_d*tension + b
 
-control with position first and print the actual current to see if it matches simulation
 id 5 is zero
 
-radisu pulley = 6mm
-measure length should be 3*105
-d = 40 mm
-tendon diameter is 36mm
+pulley radius = 6mm
 
 '''
 
@@ -53,16 +49,14 @@ def main():
     param_solver, _ = create_adaptative_parameters_solver_SQP(pcc_arm, MPC_PARAMETERS['N_p_adaptative'])
     #bounds:
     if pcc_arm.num_segments ==2:
-        lb_adaptive_abs = ca.vertcat(-0*pcc_arm.m,-0*pcc_arm.d_eq[0], -0*pcc_arm.d_eq[1], -0.9*pcc_arm.K[1,1], -0.9*pcc_arm.K[3,3])
+        lb_adaptive_abs = ca.vertcat(-0.9*pcc_arm.m,-0.9*pcc_arm.d_eq[0], -0.9*pcc_arm.d_eq[1], -0.9*pcc_arm.K[1,1], -0.9*pcc_arm.K[3,3])
     elif pcc_arm.num_segments ==3:
         lb_adaptive_abs = ca.vertcat(-0.9*pcc_arm.m,-0.9*pcc_arm.d_eq[0], -0.9*pcc_arm.d_eq[1], -0.9*pcc_arm.d_eq[2], -0.8*pcc_arm.K[1,1], -0.8*pcc_arm.K[3,3], -0.8*pcc_arm.K[5,5])
     ub_adaptive = [1e6]*pcc_arm.num_adaptive_params
 
-    error_list = []
-    instant_error_list = []
     opti_index = [0]
     loop_time=np.zeros(num_iter)
-
+    done=True
     # Simu loop
     with tqdm(total=num_iter*SIM_PARAMETERS['dt'], desc="MPC loop", bar_format='{l_bar}{bar}| {n:.2f}/{total_fmt} [{elapsed}<{remaining}, {postfix}]') as pbar:
         for t in range(num_iter):
@@ -93,7 +87,7 @@ def main():
 #######################################
 
 # Update params
-                if (pcc_arm.history_index > (MPC_PARAMETERS['N_p_adaptative']+100)):
+                if done and (pcc_arm.history_index > (MPC_PARAMETERS['N_p_adaptative']+100)):
                     start_idx = pcc_arm.history_index - MPC_PARAMETERS['N_p_adaptative']-1
                     end_idx = pcc_arm.history_index-1
 
@@ -104,17 +98,12 @@ def main():
                     prev_params = pcc_arm.history_adaptive_param[:,pcc_arm.history_index-1]
                     adaptative_solver_parameters = np.concatenate((p_states, p_inputs, prev_params))
                     error = np.mean(np.round(np.square(np.linalg.norm(pcc_arm.history[:, t-MPC_PARAMETERS['N_p_adaptative']:t-1] - pcc_arm.history_pred[:, t-MPC_PARAMETERS['N_p_adaptative']-1:t-2], axis=0)), decimals=4))
-                    # *0.8 creates an error because 0 at the beginning thus both bounds are at 0
-                    #bound_coef = [1]*pcc_arm.num_adaptive_params  # how much of the abs value of the param to allow to change
-                    #lb_adaptive = np.maximum(np.array(pcc_arm.history_adaptive_param[:,pcc_arm.history_index-1]+bound_coef*lb_adaptive_abs), np.array(lb_adaptive_abs))
-                    #ub_adaptive = pcc_arm.history_adaptive_param[:,pcc_arm.history_index-1]-bound_coef*lb_adaptive_abs
-                    error_list.append(error)
-                    instant_error_list.append(np.linalg.norm(pcc_arm.history[:, pcc_arm.history_index-1] - pcc_arm.history_pred[:, pcc_arm.history_index-2]))
                     
-                    if (error > 0.005) and (pcc_arm.history_index > opti_index[-1]+40) :  # only optimizeif error is significant
+                    if (error > 0.005) and (pcc_arm.history_index > opti_index[-1]+40) :  # only optimize if error is significant
                         opti_index.append(pcc_arm.history_index)
                         solution = param_solver(x0=pcc_arm.history_adaptive_param[:,pcc_arm.history_index-1],p=adaptative_solver_parameters,lbx=lb_adaptive_abs,ubx=ub_adaptive)
                         param_sol = np.array(solution['x']).flatten()
+                        done=False
                         '''prev_mean = 1
                         prev_mean = min(prev_mean, len(opti_index)-1)
                         gamma = np.power(0.7, np.arange(prev_mean))
@@ -125,8 +114,6 @@ def main():
 
                 else:
                     param_sol = np.zeros(pcc_arm.num_adaptive_params)
-                    error_list.append(0)
-                    instant_error_list.append(0)
                 pcc_arm.history_adaptive_param[:, pcc_arm.history_index] = param_sol
                 loop_time_3 = time.perf_counter()
 
@@ -164,7 +151,7 @@ def main():
     print("Min computation time per MPC step: ", np.min(loop_time), "ms")
 
 
-    history_plot(pcc_arm,MPC_PARAMETERS['u_bound'],dottet_plotting_traj, save=save,opti_index=opti_index)
+    history_plot(pcc_arm,MPC_PARAMETERS['u_bound'],dottet_plotting_traj, save=save,opti_index=opti_index, sim_parameters=SIM_PARAMETERS)
 
 
 def create_adaptative_parameters_solver_SQP(arm,N):
@@ -183,8 +170,8 @@ def create_adaptative_parameters_solver_SQP(arm,N):
         q_pred = arm.integrator(x0=state_history[:,-(i+2)], u=u_history[:,-(i+2)], p_global=p_global)['xf']
         cost += ca.sumsqr(q_pred - state_history[:,-(i+1)])  #prediction errorweights @ 
 
-    weights_difference = ca.diag([10]*1 + [1]*arm.num_segments + [10]*arm.num_segments)*5  #weight more the mass and stiffness changes
-    cost +=  ca.sumsqr(weights_difference @ (p_adaptative - p_adaptative_prev))
+    weights_difference = ca.diag([1]*1 + [1]*arm.num_segments + [1]*arm.num_segments)*0  #weight more the mass and stiffness changes
+    #cost +=  ca.sumsqr(weights_difference @ (p_adaptative - p_adaptative_prev))
 
     nlp = {'x': p_adaptative, 'p': p, 'f': cost}
 
@@ -195,7 +182,7 @@ def create_adaptative_parameters_solver_SQP(arm,N):
         #'jit_options': {'flags': ['-O2']}, 
         'qpsol': 'qrqp',          #QP solverqrqp, osqp, qpoases
         'qpsol_options': {'print_iter': False, 'print_header': False},
-        'max_iter': 2,
+        #'max_iter': 2,
         'print_time': 0,
         'print_header': False,
         'print_iteration': False

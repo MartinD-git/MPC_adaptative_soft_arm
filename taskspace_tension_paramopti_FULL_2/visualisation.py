@@ -9,12 +9,13 @@ import matplotlib.cm as cm
 out_dir = "csv_and_plots_adapt/"
 colored_line = True
 
-def history_plot(pcc_arm,u_bound,xyz_traj=None, save=False, opti_index=None):
+def history_plot(pcc_arm,u_bound,xyz_traj=None, save=False, opti_index=None, sim_parameters=None):
     history = pcc_arm.history[:, :pcc_arm.history_index].T
     history_d = pcc_arm.history_d[:, :pcc_arm.history_index].T
     history_u = pcc_arm.history_u[:, :pcc_arm.history_index].T
     history_u_tendon = pcc_arm.history_u_tendon[:, :pcc_arm.history_index].T
     history_param = pcc_arm.history_adaptive_param[:, :pcc_arm.history_index].T
+    history_pred = pcc_arm.history_pred[:, :pcc_arm.history_index].T
     if save:
         np.savetxt(out_dir + "history_u.csv", history_u, delimiter=",")
         np.savetxt(out_dir + "history_d.csv", history_d, delimiter=",")
@@ -100,20 +101,39 @@ def history_plot(pcc_arm,u_bound,xyz_traj=None, save=False, opti_index=None):
         plt.savefig(out_dir + "adaptive_parameters.png", dpi=200)
 
     # Error plot over time
-    # plt.figure()
-    # error_list = np.array(error_list)
-    # if len(opti_index)>1:
-    #     error_list[:opti_index[1]-1] = error_list[opti_index[1]]
-    # plt.plot(np.arange(len(error_list))*pcc_arm.dt,error_list, label='Mean squared error over last steps')
-    # plt.plot(np.arange(len(instant_error_list))*pcc_arm.dt,instant_error_list, label='Instant error')
-    # plt.legend()
-    # for i in range(1,len(opti_index)):
-    #     plt.axvline(x=opti_index[i]*pcc_arm.dt,color='r',linestyle='--',alpha=0.5)
-    # plt.title("Error over time")
-    # plt.xlabel("Time step")
-    # plt.ylabel("Error")
-    # if save:
-    #     plt.savefig(out_dir + "error_over_time.png", dpi=200)
+    q_error = np.linalg.norm(history[:-1,:] - history_pred[1:,:], axis=1)
+    # Generate XYZ coordinates
+    history_xyz = np.array([pcc_arm.end_effector(x[:2*pcc_arm.num_segments]).full().flatten() for x in history[:-1,:]])
+    history_pred_xyz = np.array([pcc_arm.end_effector(x[:2*pcc_arm.num_segments]).full().flatten() for x in history_pred[1:,:]])
+    xyz_error = np.linalg.norm(history_xyz - history_pred_xyz, axis=1)
+
+    N_mean = int(sim_parameters['T_loop'] // pcc_arm.dt)
+    time_axis = np.arange(int(q_error.shape[0])) * pcc_arm.dt
+
+    fig, axs = plt.subplots(2, 1, figsize=(10, 8), sharex=True)
+
+    axs[0].plot(time_axis, q_error, label='RMSE jointspace')
+    axs[0].plot(time_axis, np.convolve(q_error, np.ones(N_mean)/N_mean, mode='same'), label='Loop average')
+    axs[0].set_ylabel('Error')
+    axs[0].legend()
+
+    axs[1].plot(time_axis, xyz_error, label='RMSE taskspace')
+    axs[1].plot(time_axis, np.convolve(xyz_error, np.ones(N_mean)/N_mean, mode='same'), label='Loop average')
+    axs[1].set_xlabel('Time [s]')
+    axs[1].set_ylabel('Error [m]')
+    axs[1].legend()
+
+    # Add optimization vertical lines
+    for i in range(1, len(opti_index)):
+        time_loc = opti_index[i] * pcc_arm.dt
+        axs[0].axvline(x=time_loc, color='r', linestyle='--', alpha=0.5)
+        axs[1].axvline(x=time_loc, color='r', linestyle='--', alpha=0.5)
+
+    plt.suptitle("Error over time")
+    plt.tight_layout()
+  
+    if save:
+        plt.savefig(out_dir + "error_over_time.png", dpi=200)
 
 
     # 3d animation
