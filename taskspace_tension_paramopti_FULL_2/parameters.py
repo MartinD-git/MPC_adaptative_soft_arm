@@ -18,9 +18,9 @@ m = rho * np.pi*(r_o**2) * L*0.5 #mass of each segment estimated 0.5 infill
 
 print("Mass of each segment:", m)
 k_phi = 0
-k_theta = 0.356*6 #gotten from static simulation
-xi=0.05  #damping ratio
-d = 2*xi*1.875**2 * np.sqrt((rho*A*E*I)/(L**2))*0.1
+k_theta = 0.356*1.75 #gotten from static simulation
+xi=0.1  #damping ratio
+d = 2*xi*1.875**2 * np.sqrt((rho*A*E*I)/(L**2))
 
 
 rho_water = 1000 #density of water
@@ -39,7 +39,7 @@ MPC_PARAMETERS = {
     "Q":  np.diag([5e3]*3 + [1]*2*num_segments),
     "Qf": np.diag([5e3]*3 + [1]*2*num_segments),  # stronger terminal weight helps convergence
     "R": 1e-5*np.eye(3*num_segments),
-    "u_bound": [2,300],#[0,tension_bound],
+    "u_bound": [2,150],#[0,tension_bound],
     "N_p_adaptative": 20, #number of previous steps to consider for parameter estimation
 }
 if num_segments ==3:

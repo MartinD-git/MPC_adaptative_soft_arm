@@ -164,7 +164,7 @@ def pcc_dynamics(arm,q, q_dot, tips, jacobians,water=False):
     m_displaced = 0
     if water:
         rho_fluid = arm.rho_liquid   
-        m_buoy = rho_fluid * np.pi*(arm.r_o**2) * arm.L_segs[0] #buoyancy mass of each segment
+        m_buoy = rho_fluid * np.pi*(arm.r_o**2) * arm.L_segs[0]*0.5 #buoyancy mass of each segment
         m_displaced = rho_fluid * np.pi*arm.r_o**2 * arm.L_segs[0] #displaced mass of each segment
         
         for i, Ji in enumerate(jacobians):
@@ -180,7 +180,7 @@ def pcc_dynamics(arm,q, q_dot, tips, jacobians,water=False):
 
     G_integrand = (m_buoy-m+p_adaptative[0]) * sum(ca.dot(g_vec, tip) for tip in tips)
     M_integrand = (m+m_displaced+p_adaptative[0]) * (J.T @ J)
-    I_phi = 1e-4  # tune this
+    I_phi = 1e-4  # regularization to avoid singularities
     M_reg = ca.DM.zeros(2*num_segments, 2*num_segments)
     for i in range(num_segments):
         M_reg[2*i, 2*i] = I_phi
@@ -242,7 +242,7 @@ def pcc_dynamics(arm,q, q_dot, tips, jacobians,water=False):
 
     return ca.Function('pcc_f', [x, u_tendon, p_global], [x_dot])
 
-def dynamics2integrator(pcc_arm,f,n_substeps=1):
+def dynamics2integrator(pcc_arm,f,n_substeps=10):
     x0 = ca.MX.sym('x0', 4*pcc_arm.num_segments)
     u  = ca.MX.sym('u', 3*pcc_arm.num_segments)
     q0 = ca.MX.sym('q0', 4*pcc_arm.num_segments) 
