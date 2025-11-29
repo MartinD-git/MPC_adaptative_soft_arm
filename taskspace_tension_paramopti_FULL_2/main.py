@@ -53,7 +53,7 @@ def main():
     param_solver, _ = create_adaptative_parameters_solver_SQP(pcc_arm, MPC_PARAMETERS['N_p_adaptative'])
     #bounds:
     if pcc_arm.num_segments ==2:
-        lb_adaptive_abs = ca.vertcat(-0.9*pcc_arm.m,-0.9*pcc_arm.d_eq[0], -0.9*pcc_arm.d_eq[1], -0.9*pcc_arm.K[1,1], -0.9*pcc_arm.K[3,3])
+        lb_adaptive_abs = ca.vertcat(-0*pcc_arm.m,-0*pcc_arm.d_eq[0], -0*pcc_arm.d_eq[1], -0.9*pcc_arm.K[1,1], -0.9*pcc_arm.K[3,3])
     elif pcc_arm.num_segments ==3:
         lb_adaptive_abs = ca.vertcat(-0.9*pcc_arm.m,-0.9*pcc_arm.d_eq[0], -0.9*pcc_arm.d_eq[1], -0.9*pcc_arm.d_eq[2], -0.8*pcc_arm.K[1,1], -0.8*pcc_arm.K[3,3], -0.8*pcc_arm.K[5,5])
     ub_adaptive = [1e6]*pcc_arm.num_adaptive_params
@@ -93,7 +93,7 @@ def main():
 #######################################
 
 # Update params
-                if False and (pcc_arm.history_index > (MPC_PARAMETERS['N_p_adaptative']+100)):
+                if (pcc_arm.history_index > (MPC_PARAMETERS['N_p_adaptative']+100)):
                     start_idx = pcc_arm.history_index - MPC_PARAMETERS['N_p_adaptative']-1
                     end_idx = pcc_arm.history_index-1
 
@@ -113,7 +113,7 @@ def main():
                     
                     if (error > 0.005) and (pcc_arm.history_index > opti_index[-1]+40) :  # only optimizeif error is significant
                         opti_index.append(pcc_arm.history_index)
-                        solution = param_solver(x0=pcc_arm.history_adaptive_param[:,pcc_arm.history_index-1],p=adaptative_solver_parameters,lbx=lb_adaptive,ubx=ub_adaptive)
+                        solution = param_solver(x0=pcc_arm.history_adaptive_param[:,pcc_arm.history_index-1],p=adaptative_solver_parameters,lbx=lb_adaptive_abs,ubx=ub_adaptive)
                         param_sol = np.array(solution['x']).flatten()
                         '''prev_mean = 1
                         prev_mean = min(prev_mean, len(opti_index)-1)
@@ -183,7 +183,7 @@ def create_adaptative_parameters_solver_SQP(arm,N):
         q_pred = arm.integrator(x0=state_history[:,-(i+2)], u=u_history[:,-(i+2)], p_global=p_global)['xf']
         cost += ca.sumsqr(q_pred - state_history[:,-(i+1)])  #prediction errorweights @ 
 
-    weights_difference = ca.diag([10]*1 + [1]*arm.num_segments + [100]*arm.num_segments)  #weight more the mass and stiffness changes
+    weights_difference = ca.diag([10]*1 + [1]*arm.num_segments + [10]*arm.num_segments)*5  #weight more the mass and stiffness changes
     cost +=  ca.sumsqr(weights_difference @ (p_adaptative - p_adaptative_prev))
 
     nlp = {'x': p_adaptative, 'p': p, 'f': cost}
@@ -192,10 +192,10 @@ def create_adaptative_parameters_solver_SQP(arm,N):
     opts = {
         #'jit': True,
         #'compiler': 'shell',
-        #'jit_options': {'flags': ['-O3']}, 
+        #'jit_options': {'flags': ['-O2']}, 
         'qpsol': 'qrqp',          #QP solverqrqp, osqp, qpoases
         'qpsol_options': {'print_iter': False, 'print_header': False},
-        'max_iter': 1,
+        'max_iter': 2,
         'print_time': 0,
         'print_header': False,
         'print_iteration': False

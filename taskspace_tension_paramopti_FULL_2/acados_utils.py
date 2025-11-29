@@ -44,10 +44,11 @@ def setup_ocp_solver(pcc_arm, MPC_PARAMETERS, N, Tf):
     ocp.solver_options.globalization = 'MERIT_BACKTRACKING' 
     ocp.solver_options.levenberg_marquardt = 1e-1
     ocp.solver_options.nlp_solver_exact_hessian = False
-    ocp.solver_options.sim_method_num_steps = 10
+    ocp.solver_options.sim_method_num_stages = 4
+    ocp.solver_options.sim_method_num_steps = 1
 
     # ease the NLP stopping a bit around where you plateau
-    ocp.solver_options.nlp_solver_tol_stat  = 5e-3
+    ocp.solver_options.nlp_solver_tol_stat  = 5e-4
     ocp.solver_options.nlp_solver_tol_eq    = 1e-6
     ocp.solver_options.nlp_solver_tol_ineq  = 1e-6
     ocp.solver_options.nlp_solver_tol_comp  = 1e-6
