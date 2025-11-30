@@ -101,39 +101,42 @@ def history_plot(pcc_arm,u_bound,xyz_traj=None, save=False, opti_index=None, sim
         plt.savefig(out_dir + "adaptive_parameters.png", dpi=200)
 
     # Error plot over time
-    q_error = np.linalg.norm(history[:-1,:] - history_pred[1:,:], axis=1)
-    # Generate XYZ coordinates
-    history_xyz = np.array([pcc_arm.end_effector(x[:2*pcc_arm.num_segments]).full().flatten() for x in history[:-1,:]])
-    history_pred_xyz = np.array([pcc_arm.end_effector(x[:2*pcc_arm.num_segments]).full().flatten() for x in history_pred[1:,:]])
-    xyz_error = np.linalg.norm(history_xyz - history_pred_xyz, axis=1)
+    try:
+        q_error = np.linalg.norm(history[:-1,:] - history_pred[1:,:], axis=1)
+        # Generate XYZ coordinates
+        history_xyz = np.array([pcc_arm.end_effector(x[:2*pcc_arm.num_segments]).full().flatten() for x in history[:-1,:]])
+        history_pred_xyz = np.array([pcc_arm.end_effector(x[:2*pcc_arm.num_segments]).full().flatten() for x in history_pred[1:,:]])
+        xyz_error = np.linalg.norm(history_xyz - history_pred_xyz, axis=1)
 
-    N_mean = int(sim_parameters['T_loop'] // pcc_arm.dt)
-    time_axis = np.arange(int(q_error.shape[0])) * pcc_arm.dt
+        N_mean = int(sim_parameters['T_loop'] // pcc_arm.dt)
+        time_axis = np.arange(int(q_error.shape[0])) * pcc_arm.dt
 
-    fig, axs = plt.subplots(2, 1, figsize=(10, 8), sharex=True)
+        fig, axs = plt.subplots(2, 1, figsize=(10, 8), sharex=True)
 
-    axs[0].plot(time_axis, q_error, label='RMSE jointspace')
-    axs[0].plot(time_axis, np.convolve(q_error, np.ones(N_mean)/N_mean, mode='same'), label='Loop average')
-    axs[0].set_ylabel('Error')
-    axs[0].legend()
+        axs[0].plot(time_axis, q_error, label='RMSE jointspace')
+        axs[0].plot(time_axis, np.convolve(q_error, np.ones(N_mean)/N_mean, mode='same'), label='Loop average')
+        axs[0].set_ylabel('Error')
+        axs[0].legend()
 
-    axs[1].plot(time_axis, xyz_error, label='RMSE taskspace')
-    axs[1].plot(time_axis, np.convolve(xyz_error, np.ones(N_mean)/N_mean, mode='same'), label='Loop average')
-    axs[1].set_xlabel('Time [s]')
-    axs[1].set_ylabel('Error [m]')
-    axs[1].legend()
+        axs[1].plot(time_axis, xyz_error, label='RMSE taskspace')
+        axs[1].plot(time_axis, np.convolve(xyz_error, np.ones(N_mean)/N_mean, mode='same'), label='Loop average')
+        axs[1].set_xlabel('Time [s]')
+        axs[1].set_ylabel('Error [m]')
+        axs[1].legend()
 
-    # Add optimization vertical lines
-    for i in range(1, len(opti_index)):
-        time_loc = opti_index[i] * pcc_arm.dt
-        axs[0].axvline(x=time_loc, color='r', linestyle='--', alpha=0.5)
-        axs[1].axvline(x=time_loc, color='r', linestyle='--', alpha=0.5)
+        # Add optimization vertical lines
+        for i in range(1, len(opti_index)):
+            time_loc = opti_index[i] * pcc_arm.dt
+            axs[0].axvline(x=time_loc, color='r', linestyle='--', alpha=0.5)
+            axs[1].axvline(x=time_loc, color='r', linestyle='--', alpha=0.5)
 
-    plt.suptitle("Error over time")
-    plt.tight_layout()
-  
-    if save:
-        plt.savefig(out_dir + "error_over_time.png", dpi=200)
+        plt.suptitle("Error over time")
+        plt.tight_layout()
+    
+        if save:
+            plt.savefig(out_dir + "error_over_time.png", dpi=200)
+    except:
+        print("Could not plot error over time")
 
 
     # 3d animation

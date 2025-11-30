@@ -52,11 +52,11 @@ def main():
         lb_adaptive_abs = ca.vertcat(-0.9*pcc_arm.m,-0.9*pcc_arm.d_eq[0], -0.9*pcc_arm.d_eq[1], -0.9*pcc_arm.K[1,1], -0.9*pcc_arm.K[3,3])
     elif pcc_arm.num_segments ==3:
         lb_adaptive_abs = ca.vertcat(-0.9*pcc_arm.m,-0.9*pcc_arm.d_eq[0], -0.9*pcc_arm.d_eq[1], -0.9*pcc_arm.d_eq[2], -0.8*pcc_arm.K[1,1], -0.8*pcc_arm.K[3,3], -0.8*pcc_arm.K[5,5])
-    ub_adaptive = [1e6]*pcc_arm.num_adaptive_params
+    ub_adaptive = [2e1]*pcc_arm.num_adaptive_params
 
     opti_index = [0]
     loop_time=np.zeros(num_iter)
-    done=True
+    done=False
     # Simu loop
     with tqdm(total=num_iter*SIM_PARAMETERS['dt'], desc="MPC loop", bar_format='{l_bar}{bar}| {n:.2f}/{total_fmt} [{elapsed}<{remaining}, {postfix}]') as pbar:
         for t in range(num_iter):
@@ -101,6 +101,7 @@ def main():
                     
                     if (error > 0.005) and (pcc_arm.history_index > opti_index[-1]+40) :  # only optimize if error is significant
                         opti_index.append(pcc_arm.history_index)
+                        print(f"x0 adapt param: {pcc_arm.history_adaptive_param[:,pcc_arm.history_index-1]}")
                         solution = param_solver(x0=pcc_arm.history_adaptive_param[:,pcc_arm.history_index-1],p=adaptative_solver_parameters,lbx=lb_adaptive_abs,ubx=ub_adaptive)
                         param_sol = np.array(solution['x']).flatten()
                         done=False
