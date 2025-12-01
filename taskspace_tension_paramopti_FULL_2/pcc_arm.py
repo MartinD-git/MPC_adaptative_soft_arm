@@ -8,7 +8,7 @@ class PCCSoftArm:
         print("Initializing PCC Soft Arm Model...")
         #define the robot arm
         self.L_segs = arm_param_dict['L_segs']
-        self.d_eq = arm_param_dict['d_eq']
+        self.beta = arm_param_dict['beta']
         self.K = arm_param_dict['K']
         self.r_o = arm_param_dict['r_o']
         self.r_i = arm_param_dict['r_i']
@@ -23,8 +23,7 @@ class PCCSoftArm:
         self.current_state = None
         self.true_current_state = None  # for simulation with noise
         self.history = np.zeros((4*self.num_segments, history_size))
-        self.history_d = np.zeros((4*self.num_segments, history_size))
-        self.history_u = np.zeros((2*self.num_segments, history_size))
+        self.history_meas = np.zeros((4*self.num_segments, history_size))
         self.history_u_tendon = np.zeros((3*self.num_segments, history_size))
         self.history_index = 0
         self.history_pred = np.zeros((4*self.num_segments, history_size))
@@ -46,7 +45,7 @@ class PCCSoftArm:
         self.shape_func = shape_function(q, tips,self.s)
 
         # compute the dynamics
-        self.dynamics_func = pcc_dynamics(self,q, q_dot, tips, jacobians,water=True)
+        self.dynamics_func = pcc_dynamics(self,q, q_dot, tips, jacobians,water=False)
         dynamics_func_sim = pcc_dynamics(self,q, q_dot, tips, jacobians,water=True)
         print("Dynamics done")
         # create integrators
@@ -61,12 +60,11 @@ class PCCSoftArm:
         self.current_state = self.true_current_state + error
 
     
-    def log_history(self,u,q_d,u_tendon,x1):
+    def log_history(self,u_tendon,x_pred):
         self.history[:, self.history_index] = self.true_current_state
-        #self.history_d[:, self.history_index] = q_d
-        self.history_u[:, self.history_index] = u
+        self.history_meas[:, self.history_index] = self.current_state
         self.history_u_tendon[:, self.history_index] = u_tendon
-        self.history_pred[:, self.history_index] = x1
+        self.history_pred[:, self.history_index] = x_pred
         self.history_index += 1
 
     def meas_error(self):

@@ -17,11 +17,11 @@ I = np.pi*(r_o**4 - r_i**4)/4 #second moment of area
 m = rho * np.pi*(r_o**2) * L*0.5 #mass of each segment estimated 0.5 infill
 
 print("Mass of each segment:", m)
-k_phi = 0
 k_theta = 0.356*1.75 #gotten from static simulation
-xi=0.05  #damping ratio
+k_phi = 0
+xi=0.05*0.1  #damping ratio
 d = 2*xi*1.875**2 * np.sqrt((rho*A*E*I)/(L**2))
-
+print("Damping coeff:", d)
 
 rho_water = 1000 #density of water
 rho_air = 1.225 #density of air
@@ -29,23 +29,23 @@ rho_air = 1.225 #density of air
 rho_liquid = rho_water  # density of the surrounding fluid
 
 
-horizon_time = 3  #seconds
+horizon_time = 2  #seconds
 dt = 0.1  #seconds
 
 num_segments = 2
 
 MPC_PARAMETERS = {
     "N": int(np.ceil(horizon_time/dt)),
-    "Q":  np.diag([1e2]*3 + [1e-2]*2*num_segments),
-    "Qf": np.diag([1e2]*3 + [1e-2]*2*num_segments),  # stronger terminal weight helps convergence
+    "Q":  np.diag([5e2]*3 + [1e-2]*2*num_segments),
+    "Qf": np.diag([5e2]*3 + [1e-2]*2*num_segments),  # stronger terminal weight helps convergence
     "R": 1e-5*np.eye(3*num_segments),
-    "u_bound": [2,150],#[0,tension_bound],
+    "u_bound": [2,100],#[0,tension_bound],
     "N_p_adaptative": 20, #number of previous steps to consider for parameter estimation
 }
 if num_segments ==3:
     SIM_PARAMETERS = {
         "dt": dt,
-        "T": 50,#180
+        "T": 10,#180
         "x0": np.array([ # phi, theta
             np.deg2rad(1e1), np.deg2rad(1e1), np.deg2rad(1e1), np.deg2rad(1e1), np.deg2rad(1e1), np.deg2rad(1e1), # phi is angle at base, theta is curvature
             0, 0, 0, 0, 0, 0
@@ -82,6 +82,7 @@ ARM_PARAMETERS = {
     "sigma_k": sigma_k,  # tendon routing angles
     "rho_arm": rho,
     "d_eq": [d]*num_segments,
+    "beta": [0.03]*num_segments,
     "K": np.diag([k_phi, k_theta]*num_segments),
     "num_segments": num_segments,
     "rho_liquid": rho_liquid,

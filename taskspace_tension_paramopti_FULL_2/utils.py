@@ -100,6 +100,7 @@ def gauss_legendre(result,integrand, s):
     # Change of variables: s = (t+1)/2, where t is in [-1, 1]. Then ds = dt/2.
     s_eval_points = 0.5 * (gl_points + 1)
     s_weights = 0.5 * gl_weights
+    
 
     for k in range(num_points):
         s_k = s_eval_points[k]
@@ -146,16 +147,12 @@ def pcc_dynamics(arm,q, q_dot, tips, jacobians,water=False):
     D = ca.SX.zeros(2*num_segments, 2*num_segments)
     G_pot = ca.SX(0)
     g_vec = ca.vertcat(0.0, 0.0, -9.81)
-    d_eq = arm.d_eq
 
     p_adaptative = ca.SX.sym('p_adaptative', arm.num_adaptive_params, 1)
-    d_eq = ca.vertcat(*arm.d_eq)
     m = arm.m + p_adaptative[0]  # mass adaptative
     if arm.num_segments ==2:
-        d_eq = d_eq + p_adaptative[1:3]# damping adaptative
         K = arm.K + ca.diag(ca.vertcat(0, p_adaptative[3], 0, p_adaptative[4]))  # stiffness adaptative
     elif arm.num_segments ==3:
-        d_eq = d_eq + p_adaptative[1:4]# damping adaptative
         K = arm.K + ca.diag(ca.vertcat(0, p_adaptative[4], 0, p_adaptative[5], 0, p_adaptative[6]))  # stiffness adaptative
 
     J = ca.vertcat(*jacobians)
@@ -165,7 +162,7 @@ def pcc_dynamics(arm,q, q_dot, tips, jacobians,water=False):
     m_displaced = 0
     if water:
         rho_fluid = arm.rho_liquid   
-        m_buoy = rho_fluid * np.pi*(arm.r_o**2) * arm.L_segs[0]*0.5 #buoyancy mass of each segment
+        m_buoy = rho_fluid * np.pi*(arm.r_o**2) * arm.L_segs[0] #buoyancy mass of each segment
         m_displaced = rho_fluid * np.pi*arm.r_o**2 * arm.L_segs[0] #displaced mass of each segment
         
         for i, Ji in enumerate(jacobians):
@@ -173,11 +170,12 @@ def pcc_dynamics(arm,q, q_dot, tips, jacobians,water=False):
             vmag = ca.norm_2(v_i)+ 1e-6 # to be smooth
             Aproj = (2*arm.r_o)*arm.L_segs[i] # projected area per segment
             D_fluid += 0.5 * rho_fluid * arm.C_d * Aproj * vmag * (Ji.T @ Ji)
+        D_fluid_gauss = gauss_legendre(ca.SX.zeros(2*num_segments, 2*num_segments), D_fluid, s)
+    else:
+        D_fluid_gauss = ca.SX.zeros(2*num_segments, 2*num_segments)
             
-    D_integrand = ca.SX.zeros(2*num_segments, 2*num_segments)
-    for i in range(num_segments):
-        D_integrand += (jacobians[i].T @ jacobians[i]) * d_eq[i]
-    D_integrand += D_fluid
+    # for i in range(num_segments):
+    #     D_integrand += (jacobians[i].T @ jacobians[i]) * d_eq[i]
 
     G_integrand = (m_buoy-m) * sum(ca.dot(g_vec, tip) for tip in tips)
     M_integrand = (m+m_displaced) * (J.T @ J)
@@ -186,17 +184,30 @@ def pcc_dynamics(arm,q, q_dot, tips, jacobians,water=False):
     for i in range(num_segments):
         M_reg[2*i, 2*i] = I_phi
 
-    M = gauss_legendre(M, M_integrand, s) + M_reg
+    M = gauss_legendre(ca.SX.zeros(2*num_segments, 2*num_segments), M_integrand, s) + M_reg
 
-    G_pot = gauss_legendre(G_pot, G_integrand, s)
+    G_pot = gauss_legendre(ca.SX(0), G_integrand, s)
     G = ca.gradient(G_pot, q)
 
-    D = gauss_legendre(D, D_integrand, s) +1e-4* np.eye(2*num_segments)
+    beta = np.ones(arm.num_segments)*0.03
+
+    beta_adaptive = p_adaptative[arm.num_segments + 1  : arm.num_segments + 1 + arm.num_segments]
+    D_blocks = []
+    for i in range(arm.num_segments):
+        beta = arm.beta[i] + beta_adaptive[i]
+        
+        K_block = K[2*i : 2*i+2, 2*i : 2*i+2]
+        
+        # Add to list
+        D_blocks.append(beta * K_block)
+    D_stiffness = ca.diagcat(*D_blocks)
+    D = D_fluid_gauss + D_stiffness #+1e-5* ca.DM.eye(2*num_segments) # could add 0.5*M to have rayleigh damping but this works well for now
 
     M_func = ca.Function('M_func', [q, p_adaptative[0]], [M])
     G_func = ca.Function('G_func', [q, p_adaptative[0]], [G])
-    D_func = ca.Function('D_func', [q,q_dot, p_adaptative[1:arm.num_segments+1]], [D])
+    D_func = ca.Function('D_func', [q,q_dot, p_adaptative[1:arm.num_segments+1+arm.num_segments]], [D])
     arm.M_func = M_func
+    arm.D_func = D_func
 
     # Coriolis C
     M_q = M_func(q, p_adaptative[0])
@@ -209,7 +220,6 @@ def pcc_dynamics(arm,q, q_dot, tips, jacobians,water=False):
     C_vec_func = ca.Function('C_vec_func', [q, q_dot, p_adaptative[0]], [c_vec])
 
     x = ca.SX.sym('x', 4*num_segments)
-    u = ca.SX.sym('u', 2*num_segments)
     q0 = ca.SX.sym('q0', 4*num_segments)
 
     q_from_x = x[:2*num_segments]
@@ -217,10 +227,10 @@ def pcc_dynamics(arm,q, q_dot, tips, jacobians,water=False):
 
     # Calculate q_ddot
 
-    M_term= M_func(q0[:2*num_segments],p_adaptative[0])+1e-6* ca.DM.eye(2*num_segments)
+    M_term= M_func(q0[:2*num_segments],p_adaptative[0])+1e-3* ca.DM.eye(2*num_segments)
     C_term= C_vec_func(q0[:2*num_segments], q0[2*num_segments:], p_adaptative[0])
     G_term= G_func(q0[:2*num_segments], p_adaptative[0])
-    D_term= D_func(q0[:2*num_segments], q0[2*num_segments:], p_adaptative[1:arm.num_segments+1]) @ q_dot_from_x
+    D_term= D_func(q0[:2*num_segments], q0[2*num_segments:], p_adaptative[1:arm.num_segments+arm.num_segments+1]) @ q_dot_from_x
     K_term= K @ q_from_x
   
     J_tendon = ca.SX.zeros((3*num_segments, 2*num_segments))
@@ -255,10 +265,10 @@ def dynamics2integrator(pcc_arm,f,n_substeps=1):
     h  = dt / n_substeps # internal RK4 step for better stability
     x = x0
     for _ in range(n_substeps):
-        k1 = f(x,             u, p_global)
-        k2 = f(x + 0.5*h*k1,  u, p_global)
-        k3 = f(x + 0.5*h*k2,  u, p_global)
-        k4 = f(x + h*k3,      u, p_global)
+        k1 = f(x,             u, ca.vertcat(q0, p_adaptative))
+        k2 = f(x + 0.5*h*k1,  u, ca.vertcat(q0, p_adaptative))
+        k3 = f(x + 0.5*h*k2,  u, ca.vertcat(q0, p_adaptative))
+        k4 = f(x + h*k3,      u, ca.vertcat(q0, p_adaptative))
         x  = x + (h/6.0)*(k1 + 2*k2 + 2*k3 + k4)
 
     xf = x
@@ -327,7 +337,7 @@ def generate_total_trajectory(arm,SIM_PARAMETERS,N,stabilizing_time=0, loop_time
     if T < stabilizing_time + loop_time:
         raise ValueError("Total sim time must be greater than stabilizing_time + loop_time")
 
-    number_of_loops = int(np.ceil((T-stabilizing_time)/loop_time)+1) #+1 to be sure
+    number_of_loops = int(np.ceil((T-stabilizing_time+N*dt)/loop_time))+10 #+1 to be sure
 
     # Create trajectory
 

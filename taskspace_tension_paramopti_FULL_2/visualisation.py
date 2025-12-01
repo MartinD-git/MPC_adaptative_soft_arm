@@ -11,14 +11,11 @@ colored_line = True
 
 def history_plot(pcc_arm,u_bound,xyz_traj=None, save=False, opti_index=None, sim_parameters=None):
     history = pcc_arm.history[:, :pcc_arm.history_index].T
-    history_d = pcc_arm.history_d[:, :pcc_arm.history_index].T
-    history_u = pcc_arm.history_u[:, :pcc_arm.history_index].T
     history_u_tendon = pcc_arm.history_u_tendon[:, :pcc_arm.history_index].T
     history_param = pcc_arm.history_adaptive_param[:, :pcc_arm.history_index].T
     history_pred = pcc_arm.history_pred[:, :pcc_arm.history_index].T
+    history_meas = pcc_arm.history_meas[:, :pcc_arm.history_index].T
     if save:
-        np.savetxt(out_dir + "history_u.csv", history_u, delimiter=",")
-        np.savetxt(out_dir + "history_d.csv", history_d, delimiter=",")
         np.savetxt(out_dir + "history_angles.csv", history, delimiter=",")
         np.savetxt(out_dir + "history_u_tendon.csv", history_u_tendon, delimiter=",")
 
@@ -32,14 +29,13 @@ def history_plot(pcc_arm,u_bound,xyz_traj=None, save=False, opti_index=None, sim
         axs[0, i].set_title(f"Segment {i+1} Theta")
         # theta
         axs[0, i].plot(time, history[:,0+2*i], label=r'$\theta$', linestyle='-', color='b')
-        axs[0, i].plot(time, history_d[:,0+2*i], label=r'$\theta_d$', linestyle='--', color='b')
         axs[0, i].set_ylabel('rad')
         axs[0, i].tick_params(axis='y', labelcolor='b')
+        axs[0, i].set_ylim(-1.2*np.pi, 1.2*np.pi)
         #axs[0, i].legend()
         # theta dot
         ax2 = axs[0, i].twinx() 
         ax2.plot(time, history[:,0+2*pcc_arm.num_segments+2*i], label=r'$\dot{\theta}$', linestyle='-', color='c')
-        ax2.plot(time, history_d[:,0+2*pcc_arm.num_segments+2*i], label=r'$\dot{\theta}_d$', linestyle='--', color='c')
         ax2.set_ylabel('rad/s')
         ax2.tick_params(axis='y', labelcolor='c')
         #ax2.legend()
@@ -48,14 +44,13 @@ def history_plot(pcc_arm,u_bound,xyz_traj=None, save=False, opti_index=None, sim
         axs[1, i].set_title(f"Segment {i+1} Phi")
         # phi
         axs[1, i].plot(time, history[:,1+2*i], label=r'$\phi$', linestyle='-', color='b')
-        axs[1, i].plot(time, history_d[:,1+2*i], label=r'$\phi_d$', linestyle='--', color='b')
         axs[1, i].set_ylabel('rad')
         axs[1, i].tick_params(axis='y', labelcolor='b')
+        axs[1, i].set_ylim(-1.2*np.pi, 1.2*np.pi)
         #axs[1, i].legend()
         # phi dot
         ax2 = axs[1, i].twinx() 
         ax2.plot(time, history[:,1+2*pcc_arm.num_segments+2*i], label=r'$\dot{\phi}$', linestyle='-', color='c')
-        ax2.plot(time, history_d[:,1+2*pcc_arm.num_segments+2*i], label=r'$\dot{\phi}_d$', linestyle='--', color='c')
         ax2.set_ylabel('rad/s')
         ax2.tick_params(axis='y', labelcolor='c')
         #ax2.legend()
@@ -79,7 +74,7 @@ def history_plot(pcc_arm,u_bound,xyz_traj=None, save=False, opti_index=None, sim
         titles = ['Mass', 'Damping Segment 1', 'Damping Segment 2', 'Damping Segment 3', 'Stiffness Segment 1', 'Stiffness Segment 2', 'Stiffness Segment 3']
     elif pcc_arm.num_segments ==2:
         titles = ['Mass', 'Damping Segment 1', 'Damping Segment 2', 'Stiffness Segment 1', 'Stiffness Segment 2']
-    initial_param = np.concatenate(([pcc_arm.m], pcc_arm.d_eq, np.diag(pcc_arm.K)[1::2]))
+    initial_param = np.concatenate(([pcc_arm.m], pcc_arm.beta, np.diag(pcc_arm.K)[1::2]))
 
     fig, axes = plt.subplots(4, 2, figsize=(12, 10), sharex=True)
     axes = axes.ravel()
@@ -102,14 +97,15 @@ def history_plot(pcc_arm,u_bound,xyz_traj=None, save=False, opti_index=None, sim
 
     # Error plot over time
     try:
-        q_error = np.linalg.norm(history[:-1,:] - history_pred[1:,:], axis=1)
+        q_error = np.linalg.norm(history_meas[1:,:] - history_pred[:-1,:], axis=1)
         # Generate XYZ coordinates
-        history_xyz = np.array([pcc_arm.end_effector(x[:2*pcc_arm.num_segments]).full().flatten() for x in history[:-1,:]])
-        history_pred_xyz = np.array([pcc_arm.end_effector(x[:2*pcc_arm.num_segments]).full().flatten() for x in history_pred[1:,:]])
-        xyz_error = np.linalg.norm(history_xyz - history_pred_xyz, axis=1)
+        #history_xyz = np.array([pcc_arm.end_effector(x[:2*pcc_arm.num_segments]).full().flatten() for x in history[:-1,:]])
+        history_xyz_meas = np.array([pcc_arm.end_effector(x[:2*pcc_arm.num_segments]).full().flatten() for x in history_meas[1:,:]])
+        history_pred_xyz = np.array([pcc_arm.end_effector(x[:2*pcc_arm.num_segments]).full().flatten() for x in history_pred[:-1,:]])
+        xyz_error = np.linalg.norm(history_xyz_meas - history_pred_xyz, axis=1)
 
         N_mean = int(sim_parameters['T_loop'] // pcc_arm.dt)
-        time_axis = np.arange(int(q_error.shape[0])) * pcc_arm.dt
+        time_axis = np.arange(1,int(q_error.shape[0])+1) * pcc_arm.dt
 
         fig, axs = plt.subplots(2, 1, figsize=(10, 8), sharex=True)
 
