@@ -39,7 +39,7 @@ def main():
 
     #generate circular trajectory (N,4*num_segments)
     print("Generating trajectory")
-    xyz_circular_traj, dottet_plotting_traj = generate_total_trajectory(pcc_arm,SIM_PARAMETERS,N,stabilizing_time=0, loop_time=SIM_PARAMETERS['T_loop'])
+    xyz_circular_traj, dottet_plotting_traj = generate_total_trajectory(pcc_arm,SIM_PARAMETERS,N,stabilizing_time=0, loop_time=SIM_PARAMETERS['T_loop'], shape = 'lemniscate')
     print("Trajectory is generated")    
     
     # Create Acados OCP solver
@@ -56,7 +56,7 @@ def main():
 
     opti_index = [0]
     loop_time=np.zeros(num_iter)
-    done=True
+    done=False
     # Simu loop
     with tqdm(total=num_iter*SIM_PARAMETERS['dt'], desc="MPC loop", bar_format='{l_bar}{bar}| {n:.2f}/{total_fmt} [{elapsed}<{remaining}, {postfix}]') as pbar:
         for t in range(num_iter):
@@ -99,7 +99,7 @@ def main():
                     adaptative_solver_parameters = np.concatenate((p_states, p_inputs, prev_params))
                     error = np.mean(np.round(np.square(np.linalg.norm(pcc_arm.history[:, t-MPC_PARAMETERS['N_p_adaptative']:t-1] - pcc_arm.history_pred[:, t-MPC_PARAMETERS['N_p_adaptative']-1:t-2], axis=0)), decimals=4))
 
-                    if (error > 0.005) and (pcc_arm.history_index > opti_index[-1]+40) :  # only optimize if error is significant
+                    if (error > 0.05) and (pcc_arm.history_index > opti_index[-1]+40) :  # only optimize if error is significant
                         opti_index.append(pcc_arm.history_index)
                         solution = param_solver(x0=prev_params,p=adaptative_solver_parameters, lbx=lb_adaptive, ubx=ub_adaptive)
                         param_sol = np.array(solution['x']).flatten()

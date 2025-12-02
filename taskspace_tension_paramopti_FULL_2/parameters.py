@@ -51,7 +51,7 @@ if num_segments ==3:
             0, 0, 0, 0, 0, 0
         ]),
         "T_loop": 5,  # seconds
-        "radius_trajectory": 0.4*L,
+        "radius_trajectory": 0.5*L,
         "center_trajectory": np.array([1+0.2, 0, 1.4+0.8])*L,
         "rotation_angles_trajectory": np.array([np.deg2rad(0), np.deg2rad(60), np.deg2rad(0)]),
     }

@@ -277,6 +277,14 @@ def dynamics2integrator(pcc_arm,f,n_substeps=1):
 
     return F
 
+###############################################################################
+#
+#-----------------------------Trajectory generation----------------------------
+#
+###############################################################################
+
+# Circular trajectory generation
+
 def circle_trajectory(radius, center, rotation_angles, num_points):
     '''
     Generate a circular trajectory for the end-effector of radius float+, center [x,y,z] and rotations angles [roll, pitch, yaw]
@@ -284,11 +292,10 @@ def circle_trajectory(radius, center, rotation_angles, num_points):
     angles = np.linspace(0, 2*np.pi, num_points,endpoint=False)
     trajectory = np.empty((num_points, 3))
 
-    for i, ang in enumerate(angles):
-        x = radius * np.cos(ang)
-        y = radius * np.sin(ang)
-        z = 0
-        trajectory[i, :] = np.array([x, y, z])
+    x = radius * np.cos(angles)
+    y = radius * np.sin(angles)
+    z = np.zeros_like(x)
+    trajectory = np.vstack((x, y, z)).T
 
     # Apply rotation if needed
     # precalculate cos and sin for each angle
@@ -324,7 +331,120 @@ def circle_trajectory(radius, center, rotation_angles, num_points):
 
     return trajectory
 
-def generate_total_trajectory(arm,SIM_PARAMETERS,N,stabilizing_time=0, loop_time=6.0):
+# Recatangle trajectory generation
+def rectangle_trajectory(width, height, center, rotation_angles, num_points):
+    '''
+    Generate a rectangular trajectory for the end-effector of width float+, height float+, center [x,y,z] and rotations angles [roll, pitch, yaw]
+    '''
+    points_per_side = num_points // 4
+    points = np.arange(0,points_per_side)
+
+    # Bottom side
+    x_b = -width / 2 + (width / points_per_side) * points
+    y_b = (-height / 2) * np.ones_like(points)
+
+    # Right side
+    x_r = (width / 2) * np.ones_like(points)
+    y_r = -height / 2 + (height / points_per_side) * points
+
+    # Top side
+    x_t = width / 2 - (width / points_per_side) * points
+    y_t = (height / 2) * np.ones_like(points)
+
+    # Left side
+    x_l = (-width / 2) * np.ones_like(points)
+    y_l = height / 2 - (height / points_per_side) * points
+
+    x=np.concatenate([x_b,x_r,x_t,x_l])
+    y=np.concatenate([y_b,y_r,y_t,y_l])
+    z=np.zeros_like(x)
+
+    trajectory=np.vstack([x,y,z]).T
+   
+
+    # Apply rotation if needed
+    # precalculate cos and sin for each angle
+    cy, sy = np.cos(rotation_angles[2]),   np.sin(rotation_angles[2])     # yaw (psi)
+    cp, sp = np.cos(rotation_angles[1]), np.sin(rotation_angles[1])   # pitch
+    cr, sr = np.cos(rotation_angles[0]),  np.sin(rotation_angles[0])    # roll
+
+    # Rotation matrices for yaw, pitch, roll
+    Rz = np.array([
+        [cy, -sy, 0],
+        [sy,  cy, 0],
+        [ 0,   0, 1]
+    ])
+    Ry = np.array([
+        [cp, 0, sp],
+        [ 0, 1,  0],
+        [-sp, 0, cp]
+    ])
+    Rx = np.array([
+        [1,  0,   0],
+        [0, cr, -sr],
+        [0, sr,  cr]
+    ])
+
+    # Combined rotation matrix
+    R = Rz @ Ry @ Rx
+
+    # Rotate each trajectory point
+    trajectory = trajectory @ R.T
+
+    # Translate to center
+    trajectory += center
+
+    return trajectory
+
+# eight trajectory generation
+
+def eight_trajectory(alpha, center, rotation_angles, num_points):
+    '''
+    Generate an eight trajectory for the end-effector of alpha float+, center [x,y,z] and rotations angles [roll, pitch, yaw]
+    '''
+    angles = np.linspace(0, 2*np.pi, num_points,endpoint=False)
+    trajectory = np.empty((num_points, 3))
+
+    y = alpha * np.sqrt(2) * np.cos(angles) / (np.sin(angles)**2 + 1)
+    x = alpha * np.sqrt(2) * np.cos(angles) * np.sin(angles) / (np.sin(angles)**2 + 1)
+    z = np.zeros_like(x)
+    trajectory = np.vstack((x, y, z)).T
+
+    # Apply rotation if needed
+    # precalculate cos and sin for each angle
+    cy, sy = np.cos(rotation_angles[2]),   np.sin(rotation_angles[2])     # yaw (psi)
+    cp, sp = np.cos(rotation_angles[1]), np.sin(rotation_angles[1])   # pitch
+    cr, sr = np.cos(rotation_angles[0]),  np.sin(rotation_angles[0])    # roll
+
+    # Rotation matrices for yaw, pitch, roll
+    Rz = np.array([
+        [cy, -sy, 0],
+        [sy,  cy, 0],
+        [ 0,   0, 1]
+    ])
+    Ry = np.array([
+        [cp, 0, sp],
+        [ 0, 1,  0],
+        [-sp, 0, cp]
+    ])
+    Rx = np.array([
+        [1,  0,   0],
+        [0, cr, -sr],
+        [0, sr,  cr]
+    ])
+
+    # Combined rotation matrix
+    R = Rz @ Ry @ Rx
+
+    # Rotate each trajectory point
+    trajectory = trajectory @ R.T
+
+    # Translate to center
+    trajectory += center
+
+    return trajectory
+
+def generate_total_trajectory(arm,SIM_PARAMETERS,N,stabilizing_time=0, loop_time=6.0, shape = 'circle'):
 
     T = SIM_PARAMETERS['T']
     dt = SIM_PARAMETERS['dt']
@@ -345,7 +465,14 @@ def generate_total_trajectory(arm,SIM_PARAMETERS,N,stabilizing_time=0, loop_time
     num_stabilize_points = int(stabilizing_time//dt)
     
     # follow the circular trajectory
-    xyz_circular_traj = circle_trajectory(radius=radius, center=center, rotation_angles=rotation_angles, num_points=int(loop_time//dt))
+    if shape == 'circle':
+        xyz_circular_traj = circle_trajectory(radius=radius, center=center, rotation_angles=rotation_angles, num_points=int(loop_time//dt))
+    elif shape == 'rectangle':
+        xyz_circular_traj = rectangle_trajectory(width=radius, height=2*radius, center=center, rotation_angles=rotation_angles, num_points=int(loop_time//dt))
+    elif shape == 'lemniscate':
+        xyz_circular_traj = eight_trajectory(alpha=radius, center=center, rotation_angles=rotation_angles, num_points=int(loop_time//dt))
+    else:
+        raise ValueError("Shape must be 'circle', 'rectangle' or 'lemniscate'")
     dottet_plotting_traj = xyz_circular_traj.copy()
 
     # get to closest x0 point
