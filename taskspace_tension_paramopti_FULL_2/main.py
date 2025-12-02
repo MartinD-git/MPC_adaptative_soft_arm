@@ -103,7 +103,7 @@ def main():
                         opti_index.append(pcc_arm.history_index)
                         solution = param_solver(x0=prev_params,p=adaptative_solver_parameters, lbx=lb_adaptive, ubx=ub_adaptive)
                         param_sol = np.array(solution['x']).flatten()
-                        done=False
+                        done=True
                         print(f"Adaptative parameters optimized at step {pcc_arm.history_index} with error {error:.5f}: ", param_sol)
                         '''prev_mean = 1
                         prev_mean = min(prev_mean, len(opti_index)-1)
@@ -194,7 +194,7 @@ def create_adaptative_parameters_solver_SQP(arm,N):
         'qpsol': 'qrqp',          #QP solverqrqp, osqp, qpoases
         'qpsol_options': {'print_iter': False, 'print_header': False},
         #'hessian_approximation': 'limited-memory',
-        'max_iter': 1,
+        'max_iter': 2,
         'print_time': 0,
         'print_header': False,
         'print_iteration': False

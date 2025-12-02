@@ -162,8 +162,8 @@ def pcc_dynamics(arm,q, q_dot, tips, jacobians,water=False):
     m_displaced = 0
     if water:
         rho_fluid = arm.rho_liquid   
-        m_buoy = rho_fluid * np.pi*(arm.r_o**2) * arm.L_segs[0] #buoyancy mass of each segment
-        m_displaced = rho_fluid * np.pi*arm.r_o**2 * arm.L_segs[0] #displaced mass of each segment
+        m_buoy = rho_fluid * np.pi*(arm.r_o**2) * arm.L_segs[0]*0.5 #buoyancy mass of each segment
+        m_displaced = rho_fluid * np.pi*arm.r_o**2 * arm.L_segs[0]*0.5 #displaced mass of each segment
         
         for i, Ji in enumerate(jacobians):
             v_i = Ji @ q_dot
@@ -191,7 +191,7 @@ def pcc_dynamics(arm,q, q_dot, tips, jacobians,water=False):
 
     beta = np.ones(arm.num_segments)*0.03
 
-    beta_adaptive = p_adaptative[arm.num_segments + 1  : arm.num_segments + 1 + arm.num_segments]
+    beta_adaptive = p_adaptative[1:1+arm.num_segments]
     D_blocks = []
     for i in range(arm.num_segments):
         beta = arm.beta[i] + beta_adaptive[i]
@@ -205,7 +205,7 @@ def pcc_dynamics(arm,q, q_dot, tips, jacobians,water=False):
 
     M_func = ca.Function('M_func', [q, p_adaptative[0]], [M])
     G_func = ca.Function('G_func', [q, p_adaptative[0]], [G])
-    D_func = ca.Function('D_func', [q,q_dot, p_adaptative[1:arm.num_segments+1+arm.num_segments]], [D])
+    D_func = ca.Function('D_func', [q,q_dot, p_adaptative[1:1+arm.num_segments+arm.num_segments]], [D])
     arm.M_func = M_func
     arm.D_func = D_func
 
