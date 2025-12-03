@@ -19,9 +19,14 @@ def history_plot(pcc_arm,u_bound,xyz_traj=None, save=False, opti_index=None, sim
         np.savetxt(out_dir + "history_angles.csv", history, delimiter=",")
         np.savetxt(out_dir + "history_u_tendon.csv", history_u_tendon, delimiter=",")
 
+    r_pulley = 0.006  # radius pulley in m
+    history_u_tendon_current = 0.54945054945 * (history_u_tendon*r_pulley) + 0.14153846153  # I = a*tau + b
+    history_u_tendon_current = np.clip(history_u_tendon_current, 0, 1.5)  # limit current to 1.5A for safety
+    history_u_tendon_current = history_u_tendon_current * 1000  # convert to mA * -1 because of motor orientation
+
     time = np.arange(history.shape[0]) * pcc_arm.dt
 
-    fig, axs = plt.subplots(3, pcc_arm.num_segments, figsize=(14, 8), sharex=True, constrained_layout=True)
+    fig, axs = plt.subplots(4, pcc_arm.num_segments, figsize=(14, 8), sharex=True, constrained_layout=True)
     for i in range(pcc_arm.num_segments):
 
         fig.suptitle(f"States and Torques for Segment")
@@ -65,6 +70,18 @@ def history_plot(pcc_arm,u_bound,xyz_traj=None, save=False, opti_index=None, sim
         axs[2,i].set_ylabel('N')
         axs[2,i].set_ylim(0, u_bound[1]*1.1)
         axs[2,i].legend()
+
+        # motor currents
+        labels = [r'$I_1$', r'$I_2$', r'$I_3$']
+        color = ['b', 'r', 'm']
+
+        for k in range(3):
+            axs[3, i].plot(time, history_u_tendon_current[:,3*i+k], label=labels[k], linestyle='-', color=color[k])
+        axs[3,i].set_title(f'Segment {i+1}')
+        axs[3,i].set_xlabel('Time [s]')
+        axs[3,i].set_ylabel('N')
+        axs[3,i].set_ylim(0, 1.6*1000)
+        axs[3,i].legend()
 
         if save:
             plt.savefig(out_dir + f"States_Torques.png", dpi=200)
@@ -110,12 +127,14 @@ def history_plot(pcc_arm,u_bound,xyz_traj=None, save=False, opti_index=None, sim
         fig, axs = plt.subplots(2, 1, figsize=(10, 8), sharex=True)
 
         axs[0].plot(time_axis, q_error, label='RMSE jointspace')
-        axs[0].plot(time_axis, np.convolve(q_error, np.ones(N_mean)/N_mean, mode='same'), label='Loop average')
+        mean_error = np.convolve(q_error, np.ones(N_mean)/N_mean, mode='valid')
+        axs[0].plot(time_axis[-len(mean_error):], mean_error, label='Loop average')
         axs[0].set_ylabel('Error')
         axs[0].legend()
 
         axs[1].plot(time_axis, xyz_error, label='RMSE taskspace')
-        axs[1].plot(time_axis, np.convolve(xyz_error, np.ones(N_mean)/N_mean, mode='same'), label='Loop average')
+        mean_error = np.convolve(xyz_error, np.ones(N_mean)/N_mean, mode='valid')
+        axs[1].plot(time_axis[-len(mean_error):], mean_error, label='Loop average')
         axs[1].set_xlabel('Time [s]')
         axs[1].set_ylabel('Error [m]')
         axs[1].legend()

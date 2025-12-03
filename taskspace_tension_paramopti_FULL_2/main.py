@@ -39,7 +39,7 @@ def main():
 
     #generate circular trajectory (N,4*num_segments)
     print("Generating trajectory")
-    xyz_circular_traj, dottet_plotting_traj = generate_total_trajectory(pcc_arm,SIM_PARAMETERS,N,stabilizing_time=0, loop_time=SIM_PARAMETERS['T_loop'], shape = 'lemniscate')
+    xyz_circular_traj, dottet_plotting_traj = generate_total_trajectory(pcc_arm,SIM_PARAMETERS,N,stabilizing_time=0, loop_time=SIM_PARAMETERS['T_loop'], shape = 'circle')
     print("Trajectory is generated")    
     
     # Create Acados OCP solver
@@ -56,7 +56,7 @@ def main():
 
     opti_index = [0]
     loop_time=np.zeros(num_iter)
-    done=False
+    done= False
     # Simu loop
     with tqdm(total=num_iter*SIM_PARAMETERS['dt'], desc="MPC loop", bar_format='{l_bar}{bar}| {n:.2f}/{total_fmt} [{elapsed}<{remaining}, {postfix}]') as pbar:
         for t in range(num_iter):
@@ -65,13 +65,8 @@ def main():
                 loop_time_0 = time.perf_counter()
                 q_goal_value = np.vstack((xyz_circular_traj[t:t+N+1,:].T,np.zeros((2*pcc_arm.num_segments,N+1))))  # zero velocities
 
-                if t == 0:
-                    u_prev = np.zeros((3*pcc_arm.num_segments))
-                else:
-                    u_prev = pcc_arm.history_u_tendon[:,pcc_arm.history_index-1]
-                u_prev = None
                 adapt_param = pcc_arm.history_adaptive_param[:,pcc_arm.history_index]
-                u0, x1 = mpc_step_acados(ocp_solver, pcc_arm.current_state, q_goal_value, adapt_param, N, MPC_PARAMETERS['u_bound'], u_prev)
+                u0, x1 = mpc_step_acados(ocp_solver, pcc_arm.current_state, q_goal_value, adapt_param, N, MPC_PARAMETERS['u_bound'])
                 #no control:
                 # u0 = np.zeros((3*pcc_arm.num_segments))
                 # x1 = pcc_arm.current_state

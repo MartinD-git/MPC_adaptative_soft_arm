@@ -54,7 +54,7 @@ r_pulley = 0.006  # radius pulley in m
 openloop_tension_trajectory = np.loadtxt("csv_and_plots/history_u_tendon.csv", delimiter=',')
 openloop_current_trajectory = 0.54945054945 * (openloop_tension_trajectory*r_pulley) + 0.14153846153  # I = a*tau + b
 openloop_current_trajectory = np.clip(openloop_current_trajectory, 0, 1.5)  # limit current to 1.5A for safety
-openloop_current_trajectory = openloop_current_trajectory * 1000  # convert to mA
+openloop_current_trajectory = -openloop_current_trajectory * 1000  # convert to mA * -1 because of motor orientation
 
 #to test only the base:
 #openloop_current_trajectory[:, 3:] = 0

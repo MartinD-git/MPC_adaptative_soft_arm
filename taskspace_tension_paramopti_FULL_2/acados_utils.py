@@ -83,6 +83,7 @@ def setup_ocp_solver(pcc_arm, MPC_PARAMETERS, N, Tf):
     # bounds
     lbu = u_bound[0] * np.ones(nu)
     ubu = u_bound[1] * np.ones(nu)
+    #ubu[0] = lbu[0] = 0 # no control on first tendon
     ocp.constraints.lbu = lbu
     ocp.constraints.ubu = ubu
 
@@ -98,18 +99,13 @@ def setup_ocp_solver(pcc_arm, MPC_PARAMETERS, N, Tf):
 
     return acados_ocp_solver
 
-def mpc_step_acados(ocp_solver, x0, q_goal, p_adaptive,N, u_bound, u_prev=None):
+def mpc_step_acados(ocp_solver, x0, q_goal, p_adaptive,N, u_bound):
 
     nx = ocp_solver.acados_ocp.dims.nx
     nu = ocp_solver.acados_ocp.dims.nu
     # x0
     ocp_solver.set(0, 'lbx', x0)
     ocp_solver.set(0, 'ubx', x0)
-
-    #bounds
-    lbu = u_bound[0] * np.ones(nu)
-    ubu = u_bound[1] * np.ones(nu)
-
 
     # Parameters p_global = q0 (same at every stage)
     ocp_solver.set_p_global_and_precompute_dependencies(np.hstack([x0, p_adaptive]))
@@ -118,11 +114,6 @@ def mpc_step_acados(ocp_solver, x0, q_goal, p_adaptive,N, u_bound, u_prev=None):
     for i in range(N):
         yref_i = np.hstack([q_goal[:, i], np.zeros(nu)])
         ocp_solver.set(i, 'yref', yref_i)
-        if u_prev is not None:
-            lbu_local = u_prev - 3*(i+1)*np.ones(nu)
-            ubu_local = u_prev + 3*(i+1)*np.ones(nu)
-            ocp_solver.constraints_set(i, 'lbu', np.max(np.vstack((lbu_local, lbu)),axis=0))
-            ocp_solver.constraints_set(i, 'ubu', np.min(np.vstack((ubu_local, ubu)),axis=0))
     ocp_solver.set(N, 'yref', q_goal[:, N])  # terminal
 
     # solve

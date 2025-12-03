@@ -272,6 +272,7 @@ def dynamics2integrator(pcc_arm,f,n_substeps=1):
         x  = x + (h/6.0)*(k1 + 2*k2 + 2*k3 + k4)
 
     xf = x
+    #xf[:2*pcc_arm.num_segments] += ca.DM.ones(2*pcc_arm.num_segments,1) *1e-5 # to avoid singularities
 
     F = ca.Function('pcc_F_map', [x0, u, p_global], [xf], ['x0', 'u','p_global'], ['xf'])
 

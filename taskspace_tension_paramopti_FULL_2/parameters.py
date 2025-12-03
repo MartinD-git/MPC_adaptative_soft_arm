@@ -29,10 +29,10 @@ rho_air = 1.225 #density of air
 rho_liquid = rho_water  # density of the surrounding fluid
 
 
-horizon_time = 2  #seconds
+horizon_time = 3  #seconds
 dt = 0.1  #seconds
 
-num_segments = 2
+num_segments = 3
 
 MPC_PARAMETERS = {
     "N": int(np.ceil(horizon_time/dt)),
@@ -45,15 +45,15 @@ MPC_PARAMETERS = {
 if num_segments ==3:
     SIM_PARAMETERS = {
         "dt": dt,
-        "T": 10,#180
+        "T": 50,#180
         "x0": np.array([ # phi, theta
             np.deg2rad(1e1), np.deg2rad(1e1), np.deg2rad(1e1), np.deg2rad(1e1), np.deg2rad(1e1), np.deg2rad(1e1), # phi is angle at base, theta is curvature
             0, 0, 0, 0, 0, 0
         ]),
-        "T_loop": 5,  # seconds
-        "radius_trajectory": 0.5*L,
-        "center_trajectory": np.array([1+0.2, 0, 1.4+0.8])*L,
-        "rotation_angles_trajectory": np.array([np.deg2rad(0), np.deg2rad(60), np.deg2rad(0)]),
+        "T_loop": 15,  # 5 seconds
+        "radius_trajectory": 1*L, #0.5*L,
+        "center_trajectory": np.array([0, 0, 1.4+0.8])*L,#np.array([1+0.2, 0, 1.4+0.8])*L,
+        "rotation_angles_trajectory": np.array([np.deg2rad(0), np.deg2rad(0), np.deg2rad(0)]),#np.array([np.deg2rad(0), np.deg2rad(60), np.deg2rad(0)]),
     }
 elif num_segments ==2:
     SIM_PARAMETERS = {
@@ -65,10 +65,16 @@ elif num_segments ==2:
             0, 0, 0, 0
         ]),
         "T_loop": 10,  # seconds
-        "radius_trajectory": 0.4*L,
-        "center_trajectory": np.array([1, 0, 1.4])*L,
-        "rotation_angles_trajectory": np.array([np.deg2rad(0), np.deg2rad(60), np.deg2rad(0)]),
+        "radius_trajectory": 0.4*L, #0.4*L
+        "center_trajectory": np.array([1, 0, 1.4])*L,#np.array([1, 0, 1.4])*L,
+        "rotation_angles_trajectory": np.array([np.deg2rad(0), np.deg2rad(60), np.deg2rad(0)]),#np.array([np.deg2rad(0), np.deg2rad(60), np.deg2rad(0)]),
     }
+
+# # round loop:
+#         "radius_trajectory": 1*L, 
+#         "center_trajectory": np.array([0, 0, 1.4])*L,
+#         "rotation_angles_trajectory": np.array([np.deg2rad(0), np.deg2rad(0), np.deg2rad(0)]),
+
 if num_segments ==3:
     sigma_k = [np.pi/3, np.pi, 5*np.pi/3,0, 2*np.pi/3, 4*np.pi/3, np.pi/3, np.pi, 5*np.pi/3]  # tendon routing angles
 elif num_segments ==2:
