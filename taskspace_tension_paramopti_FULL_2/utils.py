@@ -445,7 +445,7 @@ def eight_trajectory(alpha, center, rotation_angles, num_points):
 
     return trajectory
 
-def generate_total_trajectory(arm,SIM_PARAMETERS,N,stabilizing_time=0, loop_time=6.0, shape = 'circle'):
+def generate_total_trajectory(arm,SIM_PARAMETERS,N,stabilizing_time=0):
 
     T = SIM_PARAMETERS['T']
     dt = SIM_PARAMETERS['dt']
@@ -454,6 +454,8 @@ def generate_total_trajectory(arm,SIM_PARAMETERS,N,stabilizing_time=0, loop_time
     radius = SIM_PARAMETERS['radius_trajectory']
     center = SIM_PARAMETERS['center_trajectory']
     rotation_angles = SIM_PARAMETERS['rotation_angles_trajectory']
+    loop_time = SIM_PARAMETERS['T_loop']
+    shape = SIM_PARAMETERS['shape']
 
     if T < stabilizing_time + loop_time:
         raise ValueError("Total sim time must be greater than stabilizing_time + loop_time")

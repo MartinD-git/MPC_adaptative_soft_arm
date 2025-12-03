@@ -17,11 +17,9 @@ I = np.pi*(r_o**4 - r_i**4)/4 #second moment of area
 m = rho * np.pi*(r_o**2) * L*0.5 #mass of each segment estimated 0.5 infill
 
 print("Mass of each segment:", m)
-k_theta = 0.356*1.75 #gotten from static simulation
+k_theta = 0.356*1.75 #0.356*1.75 gotten from static simulation
 k_phi = 0
-xi=0.05*0.1  #damping ratio
-d = 2*xi*1.875**2 * np.sqrt((rho*A*E*I)/(L**2))
-print("Damping coeff:", d)
+beta = 0.03
 
 rho_water = 1000 #density of water
 rho_air = 1.225 #density of air
@@ -32,7 +30,7 @@ rho_liquid = rho_water  # density of the surrounding fluid
 horizon_time = 3  #seconds
 dt = 0.1  #seconds
 
-num_segments = 3
+num_segments = 2
 
 MPC_PARAMETERS = {
     "N": int(np.ceil(horizon_time/dt)),
@@ -65,9 +63,10 @@ elif num_segments ==2:
             0, 0, 0, 0
         ]),
         "T_loop": 10,  # seconds
-        "radius_trajectory": 0.4*L, #0.4*L
-        "center_trajectory": np.array([1, 0, 1.4])*L,#np.array([1, 0, 1.4])*L,
-        "rotation_angles_trajectory": np.array([np.deg2rad(0), np.deg2rad(60), np.deg2rad(0)]),#np.array([np.deg2rad(0), np.deg2rad(60), np.deg2rad(0)]),
+        "shape": 'circle', # "rectangle", "circle", "lemniscate"
+        "radius_trajectory": 1*L, #0.4*L
+        "center_trajectory": np.array([0, 0, 1.4])*L,#np.array([1, 0, 1.4])*L,
+        "rotation_angles_trajectory": np.array([np.deg2rad(0), np.deg2rad(0), np.deg2rad(0)]),#np.array([np.deg2rad(0), np.deg2rad(60), np.deg2rad(0)]),
     }
 
 # # round loop:
@@ -87,8 +86,7 @@ ARM_PARAMETERS = {
     "r_i": r_i,
     "sigma_k": sigma_k,  # tendon routing angles
     "rho_arm": rho,
-    "d_eq": [d]*num_segments,
-    "beta": [0.03]*num_segments,
+    "beta": [beta]*num_segments,
     "K": np.diag([k_phi, k_theta]*num_segments),
     "num_segments": num_segments,
     "rho_liquid": rho_liquid,
