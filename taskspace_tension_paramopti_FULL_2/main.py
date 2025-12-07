@@ -185,18 +185,18 @@ def create_adaptative_parameters_solver_SQP(arm,N):
     nlp = {'x': p_adaptative, 'p': p, 'f': cost}
 
     # SQP
-    opts = {
-        #'jit': True,
-        #'compiler': 'shell',
-        #'jit_options': {'flags': ['-O2']}, 
-        'qpsol': 'qrqp',          #QP solverqrqp, osqp, qpoases
-        #'qpsol_options': {'print_iter': False, 'print_header': False},
-        #'hessian_approximation': 'limited-memory',
-        #'max_iter': 2,
-        #'print_time': 0,
-        #'print_header': False,
-        #'print_iteration': False
-    }
+    # opts = {
+    #     #'jit': True,
+    #     #'compiler': 'shell',
+    #     #'jit_options': {'flags': ['-O2']}, 
+    #     'qpsol': 'qrqp',          #QP solverqrqp, osqp, qpoases
+    #     #'qpsol_options': {'print_iter': False, 'print_header': False},
+    #     #'hessian_approximation': 'limited-memory',
+    #     #'max_iter': 2,
+    #     #'print_time': 0,
+    #     #'print_header': False,
+    #     #'print_iteration': False
+    # }
     opts = {
         # "ipopt.print_level": 0,
         # "print_time": False,
