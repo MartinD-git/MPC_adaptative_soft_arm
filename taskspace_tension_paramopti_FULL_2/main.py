@@ -44,7 +44,7 @@ def main():
     
     # Create Acados OCP solver
     Tf = N * SIM_PARAMETERS['dt']
-    #ocp_solver = setup_ocp_solver(pcc_arm, MPC_PARAMETERS, N, Tf)
+    ocp_solver = setup_ocp_solver(pcc_arm, MPC_PARAMETERS, N, Tf)
 
     param_solver = create_adaptative_parameters_solver_SQP(pcc_arm, MPC_PARAMETERS['N_p_adaptative'])
     #bounds:
@@ -56,7 +56,7 @@ def main():
 
     opti_index = [0]
     loop_time=np.zeros(num_iter)
-    done= False
+    done= True
     # Simu loop
     with tqdm(total=num_iter*SIM_PARAMETERS['dt'], desc="MPC loop", bar_format='{l_bar}{bar}| {n:.2f}/{total_fmt} [{elapsed}<{remaining}, {postfix}]') as pbar:
         for t in range(num_iter):
@@ -66,10 +66,10 @@ def main():
                 q_goal_value = np.vstack((xyz_circular_traj[t:t+N+1,:].T,np.zeros((2*pcc_arm.num_segments,N+1))))  # zero velocities
 
                 adapt_param = pcc_arm.history_adaptive_param[:,pcc_arm.history_index]
-                #u0, x1 = mpc_step_acados(ocp_solver, pcc_arm.current_state, q_goal_value, adapt_param, N, MPC_PARAMETERS['u_bound'])
+                u0, x1 = mpc_step_acados(ocp_solver, pcc_arm.current_state, q_goal_value, adapt_param, N, MPC_PARAMETERS['u_bound'])
                 #no control:
-                u0 = np.zeros((3*pcc_arm.num_segments))
-                x1 = pcc_arm.current_state
+                #u0 = np.zeros((3*pcc_arm.num_segments))
+                #x1 = pcc_arm.current_state
                 loop_time_1 = time.perf_counter()
                 pcc_arm.log_history(u0, x1)
 
@@ -96,6 +96,7 @@ def main():
 
                     if (error > 0.05) and (pcc_arm.history_index > opti_index[-1]+40) :  # only optimize if error is significant
                         opti_index.append(pcc_arm.history_index)
+                        print(prev_params)
                         solution = param_solver(x0=prev_params,p=adaptative_solver_parameters, lbx=lb_adaptive, ubx=ub_adaptive)
                         param_sol = np.array(solution['x']).flatten()
                         done=True
@@ -131,6 +132,7 @@ def main():
                 break
 
     print("--- %s seconds ---" % (time.perf_counter() - start_time))
+    print(prev_params)
     save = False
     out_dir = "csv_and_plots_adapt/"
 
@@ -147,13 +149,13 @@ def main():
     print("Min computation time per MPC step: ", np.min(loop_time), "ms")
 
     # print some Mfunc and Dfunc values
-    q_test = pcc_arm.history[:2*pcc_arm.num_segments,50]
-    q_dot_test = pcc_arm.history[2*pcc_arm.num_segments:4*pcc_arm.num_segments,50]
-    q_adapt_test = pcc_arm.history_adaptive_param[:,50]
-    M_test = pcc_arm.M_func(q_test, q_adapt_test[0])
-    D_test = pcc_arm.D_func(q_test, q_dot_test, q_adapt_test[1:pcc_arm.num_segments+pcc_arm.num_segments+1])
-    print("M_func test output:", M_test)
-    print("D_func test output:", D_test)
+    # q_test = pcc_arm.history[:2*pcc_arm.num_segments,50]
+    # q_dot_test = pcc_arm.history[2*pcc_arm.num_segments:4*pcc_arm.num_segments,50]
+    # q_adapt_test = pcc_arm.history_adaptive_param[:,50]
+    # M_test = pcc_arm.M_func(q_test, q_adapt_test[0])
+    # D_test = pcc_arm.D_func(q_test, q_dot_test, q_adapt_test[1:pcc_arm.num_segments+pcc_arm.num_segments+1])
+    # print("M_func test output:", M_test)
+    # print("D_func test output:", D_test)
 
 
 
@@ -170,13 +172,14 @@ def create_adaptative_parameters_solver_SQP(arm,N):
     p_adaptative_prev = p[-arm.num_adaptive_params:]
 
     cost=0
-    #weights = ca.diag([1]*4*arm.num_segments)  #weight more the curvature states
+    weights_regul = ca.diag([1]*arm.num_adaptive_params)  #weight more the curvature states
     for i in range(N):
         p_global = ca.vertcat(state_history[:,-(i+2)], p_adaptative)
         q_pred = arm.integrator(x0=state_history[:,-(i+2)], u=u_history[:,-(i+2)], p_global=p_global)['xf']
         cost += ca.sumsqr(q_pred - state_history[:,-(i+1)])  #prediction errorweights @ 
 
-    weights_difference = ca.diag([50]*1 + [50]*arm.num_segments + [50]*arm.num_segments)  #weight more the mass and stiffness changes
+    weights_difference = ca.diag([1e-3]*1 + [1e-3]*arm.num_segments + [1e-3]*arm.num_segments)  #weight more the mass and stiffness changes
+    cost +=  ca.sumsqr(weights_regul @ p_adaptative)
     cost +=  ca.sumsqr(weights_difference @ (p_adaptative - p_adaptative_prev))
 
     nlp = {'x': p_adaptative, 'p': p, 'f': cost}
@@ -187,16 +190,24 @@ def create_adaptative_parameters_solver_SQP(arm,N):
         #'compiler': 'shell',
         #'jit_options': {'flags': ['-O2']}, 
         'qpsol': 'qrqp',          #QP solverqrqp, osqp, qpoases
-        'qpsol_options': {'print_iter': False, 'print_header': False},
+        #'qpsol_options': {'print_iter': False, 'print_header': False},
         #'hessian_approximation': 'limited-memory',
-        'max_iter': 2,
-        'print_time': 0,
-        'print_header': False,
-        'print_iteration': False
+        #'max_iter': 2,
+        #'print_time': 0,
+        #'print_header': False,
+        #'print_iteration': False
+    }
+    opts = {
+        # "ipopt.print_level": 0,
+        # "print_time": False,
+        # "jit": True,                   # Enable JIT compilation
+        'ipopt.max_iter': 1,
+        "compiler": "shell",           # Use system compiler (gcc/clang)
+        "jit_options": {"flags": ["-O2"]} # Maximum optimization
     }
 
-    solver = ca.nlpsol('adaptative_solver', 'sqpmethod', nlp, opts)
-
+    #solver = ca.nlpsol('adaptative_solver', 'sqpmethod', nlp, opts)
+    solver = ca.nlpsol('adaptative_solver', 'ipopt', nlp, opts)
     return solver#, ca.Function('error_func', [p_adaptative, p], [cost])
 
 if __name__ == "__main__":

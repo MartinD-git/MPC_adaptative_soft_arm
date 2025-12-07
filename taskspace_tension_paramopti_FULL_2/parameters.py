@@ -64,9 +64,9 @@ elif num_segments ==2:
         ]),
         "T_loop": 10,  # seconds
         "shape": 'circle', # "rectangle", "circle", "lemniscate"
-        "radius_trajectory": 1*L, #0.4*L
-        "center_trajectory": np.array([0, 0, 1.4])*L,#np.array([1, 0, 1.4])*L,
-        "rotation_angles_trajectory": np.array([np.deg2rad(0), np.deg2rad(0), np.deg2rad(0)]),#np.array([np.deg2rad(0), np.deg2rad(60), np.deg2rad(0)]),
+        "radius_trajectory": 0.4*L, #0.4*L
+        "center_trajectory": np.array([1, 0, 1.4])*L,#np.array([1, 0, 1.4])*L,
+        "rotation_angles_trajectory": np.array([np.deg2rad(0), np.deg2rad(60), np.deg2rad(0)]),#np.array([np.deg2rad(0), np.deg2rad(60), np.deg2rad(0)]),
     }
 
 # # round loop:
