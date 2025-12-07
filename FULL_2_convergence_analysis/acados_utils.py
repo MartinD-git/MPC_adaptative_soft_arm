@@ -16,10 +16,9 @@ def export_pcc_acados_model(pcc_arm, name="pcc_arm_ocp"):
     model.x = x
     model.u = u
     model.p_global = p_global
+    model.xdot = ca.SX.sym('xdot', nx)
     model.f_expl_expr = pcc_arm.dynamics_func(x, u, p_global)
-    xdot = ca.SX.sym('xdot', nx)
-    model.xdot = xdot
-    model.f_impl_expr = xdot - model.f_expl_expr
+    model.f_impl_expr = model.xdot - model.f_expl_expr
 
     return model
 
@@ -44,21 +43,23 @@ def setup_ocp_solver(pcc_arm, MPC_PARAMETERS, N, Tf):
     ocp.solver_options.tf = Tf
     ocp.solver_options.nlp_solver_max_iter = 500
 
-    # ?? works better with these globalization settings if its breaking
-    #ocp.solver_options.globalization_fixed_step_length = 0.5 
-    #ocp.solver_options.globalization_full_step_dual = 1        # keep duals stable when primals take smaller steps
     ocp.solver_options.globalization = 'MERIT_BACKTRACKING' 
-    # ocp.solver_options.globalization_alpha_min = 0.05
-    # ocp.solver_options.globalization_alpha_reduction = 0.7
-    ocp.solver_options.regularize_method = 'MIRROR'
-    ocp.solver_options.levenberg_marquardt = 1e-1
-    ocp.solver_options.nlp_solver_exact_hessian = False
-    ocp.solver_options.integrator_type = 'ERK'          # ERK
-    ocp.solver_options.sim_method_num_stages = 4        # RK4-style
-    ocp.solver_options.sim_method_num_steps = 5         # or 5–10 for stiff dynamics
+    ocp.solver_options.levenberg_marquardt = 1e-2
+    ocp.solver_options.globalization_use_SOC = True
+    #ocp.solver_options.sim_method_num_stages = 4
+    #ocp.solver_options.sim_method_num_steps = 10
+    ocp.solver_options.integrator_type = 'IRK'
+    # To play a bit:
+    # property hpipm_mode
+
+    # Mode of HPIPM to be used,
+
+    # String in (‘BALANCE’, ‘SPEED_ABS’, ‘SPEED’, ‘ROBUST’).
+
+    # Default: ‘BALANCE’.
 
     # ease the NLP stopping a bit around where you plateau
-    ocp.solver_options.nlp_solver_tol_stat  = 5e-4
+    ocp.solver_options.nlp_solver_tol_stat  = 5e-3#5e-4
     ocp.solver_options.nlp_solver_tol_eq    = 1e-6
     ocp.solver_options.nlp_solver_tol_ineq  = 1e-6
     ocp.solver_options.nlp_solver_tol_comp  = 1e-6
@@ -82,8 +83,7 @@ def setup_ocp_solver(pcc_arm, MPC_PARAMETERS, N, Tf):
     # bounds
     lbu = u_bound[0] * np.ones(nu)
     ubu = u_bound[1] * np.ones(nu)
-    #lbu[5]=0 #simulate broken tendon
-    #ubu[5]=0
+    #ubu[0] = lbu[0] = 0 # no control on first tendon
     ocp.constraints.lbu = lbu
     ocp.constraints.ubu = ubu
 
@@ -97,35 +97,15 @@ def setup_ocp_solver(pcc_arm, MPC_PARAMETERS, N, Tf):
 
     acados_ocp_solver = AcadosOcpSolver(ocp)
 
-   # acados_ocp_solver.options_set('globalization_use_SOC', 1)
-
     return acados_ocp_solver
 
-
-def setup_acados_integrator(pcc_arm, dt):
-    """
-    Optional external simulator (you can keep using your own integrator_sim if you prefer).
-    """
-    sim = AcadosSim()
-    sim.model = export_pcc_acados_model(pcc_arm, name="pcc_arm_sim")
-    sim.solver_options.T = dt
-    sim.solver_options.num_steps = 2
-    sim.code_export_directory = 'c_generated_code_pcc_sim'
-    return AcadosSimSolver(sim)
-
-
-def mpc_step_acados(ocp_solver, x0, q_goal, p_adaptive,N, u_bound, u_prev=None):
+def mpc_step_acados(ocp_solver, x0, q_goal, p_adaptive,N, u_bound):
 
     nx = ocp_solver.acados_ocp.dims.nx
     nu = ocp_solver.acados_ocp.dims.nu
     # x0
     ocp_solver.set(0, 'lbx', x0)
     ocp_solver.set(0, 'ubx', x0)
-
-    #bounds
-    lbu = u_bound[0] * np.ones(nu)
-    ubu = u_bound[1] * np.ones(nu)
-
 
     # Parameters p_global = q0 (same at every stage)
     ocp_solver.set_p_global_and_precompute_dependencies(np.hstack([x0, p_adaptive]))
@@ -134,11 +114,6 @@ def mpc_step_acados(ocp_solver, x0, q_goal, p_adaptive,N, u_bound, u_prev=None):
     for i in range(N):
         yref_i = np.hstack([q_goal[:, i], np.zeros(nu)])
         ocp_solver.set(i, 'yref', yref_i)
-        if u_prev is not None:
-            lbu_local = u_prev - 3*(i+1)*np.ones(nu)
-            ubu_local = u_prev + 3*(i+1)*np.ones(nu)
-            ocp_solver.constraints_set(i, 'lbu', np.max(np.vstack((lbu_local, lbu)),axis=0))
-            ocp_solver.constraints_set(i, 'ubu', np.min(np.vstack((ubu_local, ubu)),axis=0))
     ocp_solver.set(N, 'yref', q_goal[:, N])  # terminal
 
     # solve

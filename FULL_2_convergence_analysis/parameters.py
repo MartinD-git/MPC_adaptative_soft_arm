@@ -16,7 +16,6 @@ A= np.pi*(r_o**2 - r_i**2)  # area
 I = np.pi*(r_o**4 - r_i**4)/4 #second moment of area
 m = rho * np.pi*(r_o**2) * L*0.5 #mass of each segment estimated 0.5 infill
 
-print("Mass of each segment:", m)
 k_theta = 0.356*1.75 #0.356*1.75 gotten from static simulation
 k_phi = 0
 beta = 0.03
@@ -34,8 +33,8 @@ num_segments = 2
 
 MPC_PARAMETERS = {
     "N": int(np.ceil(horizon_time/dt)),
-    "Q":  np.diag([5e3]*3 + [1e-2]*2*num_segments),
-    "Qf": np.diag([5e3]*3 + [1e-2]*2*num_segments),  # stronger terminal weight helps convergence
+    "Q":  np.diag([5e2]*3 + [1e-2]*2*num_segments),
+    "Qf": np.diag([5e2]*3 + [1e-2]*2*num_segments),  # stronger terminal weight helps convergence
     "R": 1e-5*np.eye(3*num_segments),
     "u_bound": [2,100],#[0,tension_bound],
     "N_p_adaptative": 20, #number of previous steps to consider for parameter estimation

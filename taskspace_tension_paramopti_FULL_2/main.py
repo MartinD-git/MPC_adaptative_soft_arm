@@ -198,12 +198,13 @@ def create_adaptative_parameters_solver_SQP(arm,N):
     #     #'print_iteration': False
     # }
     opts = {
-        # "ipopt.print_level": 0,
-        # "print_time": False,
         # "jit": True,                   # Enable JIT compilation
-        'ipopt.max_iter': 1,
-        "compiler": "shell",           # Use system compiler (gcc/clang)
-        "jit_options": {"flags": ["-O2"]} # Maximum optimization
+
+        #"compiler": "shell",           # Use system compiler (gcc/clang)
+        #"jit_options": {"flags": ["-O2"]}, # Maximum optimization
+        'print_time': 0,
+        'ipopt.print_level': 0,
+        'ipopt.max_iter': 2,
     }
 
     #solver = ca.nlpsol('adaptative_solver', 'sqpmethod', nlp, opts)
