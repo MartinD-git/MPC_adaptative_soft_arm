@@ -43,12 +43,15 @@ def setup_ocp_solver(pcc_arm, MPC_PARAMETERS, N, Tf):
     ocp.solver_options.tf = Tf
     ocp.solver_options.nlp_solver_max_iter = 500
 
-    ocp.solver_options.globalization = 'MERIT_BACKTRACKING' 
+    ocp.solver_options.globalization = 'MERIT_BACKTRACKING' # 'MERIT_BACKTRACKING' FUNNEL_L1PEN_LINESEARCH
+
     ocp.solver_options.levenberg_marquardt = 1e-2
     ocp.solver_options.globalization_use_SOC = True
+    #ocp.solver_options.hpipm_mode = 'ROBUST'
     #ocp.solver_options.sim_method_num_stages = 4
     #ocp.solver_options.sim_method_num_steps = 10
     ocp.solver_options.integrator_type = 'IRK'
+
     # To play a bit:
     # property hpipm_mode
 

@@ -17,7 +17,7 @@ def history_plot(pcc_arm,u_bound,xyz_traj=None, save=False, opti_index=None, sim
     history_meas = pcc_arm.history_meas[:, :pcc_arm.history_index].T
     if save:
         np.savetxt(out_dir + "history_angles.csv", history, delimiter=",")
-        np.savetxt(out_dir + "history_u_tendon.csv", history_u_tendon, delimiter=",")
+    np.savetxt(out_dir + "history_u_tendon.csv", history_u_tendon, delimiter=",")
 
     r_pulley = 0.006  # radius pulley in m
     history_u_tendon_current = 0.54945054945 * (history_u_tendon*r_pulley) + 0.14153846153  # I = a*tau + b

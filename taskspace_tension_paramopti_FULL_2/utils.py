@@ -66,8 +66,16 @@ def pcc_forward_kinematics(s, q, L_segs,num_segments):
     T_tip1 = pcc_segment_transform(1, phi1, th1, L1)
     T_tip2 = pcc_segment_transform(1, phi2, th2, L2)
 
-    T_global1 = pcc_segment_transform(s, phi1, th1, L1)
-    T_global2 = T_tip1 @ pcc_segment_transform(s, phi2, th2, L2)
+    # rotation of pi around y to have the arm pointed down
+    R_y = ca.vertcat(
+        ca.horzcat(-1,  0,        0),
+        ca.horzcat(0,    1,     0),
+        ca.horzcat(0,          0,              -1)
+    )
+    T_y = ca.vertcat(ca.horzcat(R_y, ca.vertcat(0, 0, 0)), ca.horzcat(0,0,0,1))
+
+    T_global1 = T_y @ pcc_segment_transform(s, phi1, th1, L1)
+    T_global2 = T_y @ T_tip1 @ pcc_segment_transform(s, phi2, th2, L2)
 
     p1 = T_global1[:3, 3]
     p2 = T_global2[:3, 3]
@@ -188,8 +196,6 @@ def pcc_dynamics(arm,q, q_dot, tips, jacobians,water=False):
 
     G_pot = gauss_legendre(ca.SX(0), G_integrand, s)
     G = ca.gradient(G_pot, q)
-
-    beta = np.ones(arm.num_segments)*0.03
 
     beta_adaptive = p_adaptative[1:1+arm.num_segments]
     D_blocks = []

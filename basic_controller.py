@@ -51,8 +51,9 @@ for i in range(n_motors):
 
 index = 0
 r_pulley = 0.006  # radius pulley in m
-openloop_tension_trajectory = np.loadtxt("csv_and_plots/history_u_tendon.csv", delimiter=',')
-openloop_current_trajectory = 0.54945054945 * (openloop_tension_trajectory*r_pulley) + 0.14153846153  # I = a*tau + b
+dt = 0.1
+openloop_tension_trajectory = np.loadtxt("csv_and_plots_adapt/history_u_tendon.csv", delimiter=',')
+openloop_current_trajectory = 0.54945054945 * (openloop_tension_trajectory*r_pulley) + 0.04 #+ 0.14153846153  # I = a*tau + b
 openloop_current_trajectory = np.clip(openloop_current_trajectory, 0, 1.5)  # limit current to 1.5A for safety
 openloop_current_trajectory = -openloop_current_trajectory * 1000  # convert to mA * -1 because of motor orientation
 
@@ -66,12 +67,15 @@ idx = np.empty_like(motor_permutation)
 idx[motor_permutation] = np.arange(len(motor_permutation))
 openloop_current_trajectory = openloop_current_trajectory[:, idx]
 
+# For code sanity check only !!!
+#openloop_current_trajectory = -20 * np.ones_like(openloop_current_trajectory)
+
 
 index = 0
 print("Press any key to continue! (or press ESC to quit!)")
 if getch() == chr(0x1b):
     exit()
-traj_tension = np.ones((1,n_motors))*300
+traj_tension = -np.ones((1,n_motors))*40
 print(f"Desired mA: {traj_tension[index, :]}")
 controller.set_goal_current_mA(traj_tension[0, :])
 
@@ -86,23 +90,20 @@ print("Press any key to continue! (or press ESC to quit!)")
 if getch() == chr(0x1b):
     exit()
 
+meas_info = 0.0
+desired_info = 0.0
 for index in tqdm(range(openloop_current_trajectory.shape[0])):
-        
+
     controller.set_goal_current_mA(openloop_current_trajectory[index,:])
-    
-    # wait 3s to let the motors move
-    time.sleep(0.06)
-    if index % 20 == 0:
+
+    # wait to let the motors move
+    time.sleep(dt)
+
+    if index % 5 == 0:
         result_info = controller.read_info_with_unit(retry=False, fast_read=False)
-        pos = result_info[0]
-        current = result_info[2]
-        print(f"Desired mA: {openloop_current_trajectory[index, :]}")
-        print(f"Measured mA: {current}")
-    # Change goal position
-    if index < openloop_current_trajectory.shape[0] - 1:
-        index += 1
-    else:
-        break
+        #pos = result_info[0]
+        print(f"Measured: {result_info[2]}mA") # current
+        print(f"Desired: {openloop_current_trajectory[index, :]}mA")
 
 
 
