@@ -120,7 +120,12 @@ def mpc_step_acados(ocp_solver, x0, q_goal, p_adaptive,N, u_bound):
     ocp_solver.set(N, 'yref', q_goal[:, N])  # terminal
 
     # solve
-    u0 = ocp_solver.solve_for_x0(x0)
+    status = ocp_solver.solve()
+
+    if status != 0:
+        print(f"Acados returned status {status}. Returning current solution.")
+
+    u0 = ocp_solver.get(0, 'u')
     x1 = ocp_solver.get(1, 'x')
 
     return u0, x1

@@ -44,7 +44,7 @@ def main():
     
     # Create Acados OCP solver
     Tf = N * SIM_PARAMETERS['dt']
-    #ocp_solver = setup_ocp_solver(pcc_arm, MPC_PARAMETERS, N, Tf)
+    ocp_solver = setup_ocp_solver(pcc_arm, MPC_PARAMETERS, N, Tf)
 
     param_solver = create_adaptative_parameters_solver_SQP(pcc_arm, MPC_PARAMETERS['N_p_adaptative'])
     #bounds:
@@ -66,10 +66,10 @@ def main():
                 q_goal_value = np.vstack((xyz_circular_traj[t:t+N+1,:].T,np.zeros((2*pcc_arm.num_segments,N+1))))  # zero velocities
 
                 adapt_param = pcc_arm.history_adaptive_param[:,pcc_arm.history_index]
-                #u0, x1 = mpc_step_acados(ocp_solver, pcc_arm.current_state, q_goal_value, adapt_param, N, MPC_PARAMETERS['u_bound'])
+                u0, x1 = mpc_step_acados(ocp_solver, pcc_arm.current_state, q_goal_value, adapt_param, N, MPC_PARAMETERS['u_bound'])
                 #no control:
-                u0 = np.zeros((3*pcc_arm.num_segments))
-                x1 = pcc_arm.current_state
+                # u0 = np.zeros((3*pcc_arm.num_segments))
+                # x1 = pcc_arm.current_state
                 loop_time_1 = time.perf_counter()
                 pcc_arm.log_history(u0, x1)
 

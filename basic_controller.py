@@ -8,6 +8,8 @@ import numpy as np
 from helper_funcs import *
 from getch import getch
 from tqdm import tqdm
+import traceback
+import matplotlib.pyplot as plt
 
 
 """
@@ -53,7 +55,7 @@ index = 0
 r_pulley = 0.006  # radius pulley in m
 dt = 0.1
 openloop_tension_trajectory = np.loadtxt("csv_and_plots_adapt/history_u_tendon.csv", delimiter=',')
-openloop_current_trajectory = 0.54945054945 * (openloop_tension_trajectory*r_pulley) + 0.04 #+ 0.14153846153  # I = a*tau + b
+openloop_current_trajectory = 0.54945054945 * (openloop_tension_trajectory*r_pulley) + 0.02 #+ 0.14153846153  # I = a*tau + b
 openloop_current_trajectory = np.clip(openloop_current_trajectory, 0, 1.5)  # limit current to 1.5A for safety
 openloop_current_trajectory = -openloop_current_trajectory * 1000  # convert to mA * -1 because of motor orientation
 
@@ -66,6 +68,7 @@ motor_permutation = [1,5,3,2,0,4]
 idx = np.empty_like(motor_permutation)
 idx[motor_permutation] = np.arange(len(motor_permutation))
 openloop_current_trajectory = openloop_current_trajectory[:, idx]
+openloop_current_trajectory = openloop_current_trajectory*1.5
 
 # For code sanity check only !!!
 #openloop_current_trajectory = -20 * np.ones_like(openloop_current_trajectory)
@@ -75,7 +78,7 @@ index = 0
 print("Press any key to continue! (or press ESC to quit!)")
 if getch() == chr(0x1b):
     exit()
-traj_tension = -np.ones((1,n_motors))*40
+traj_tension = -np.ones((1,n_motors))*20
 print(f"Desired mA: {traj_tension[index, :]}")
 controller.set_goal_current_mA(traj_tension[0, :])
 
@@ -90,20 +93,38 @@ print("Press any key to continue! (or press ESC to quit!)")
 if getch() == chr(0x1b):
     exit()
 
-meas_info = 0.0
-desired_info = 0.0
+current_meas = np.zeros_like(openloop_current_trajectory)
+prev_time = time.perf_counter()
 for index in tqdm(range(openloop_current_trajectory.shape[0])):
+    try:
+        controller.set_goal_current_mA(openloop_current_trajectory[index,:])
 
-    controller.set_goal_current_mA(openloop_current_trajectory[index,:])
-
-    # wait to let the motors move
-    time.sleep(dt)
-
-    if index % 5 == 0:
+        # wait to let the motors move
+        while time.perf_counter() - prev_time < dt:
+            pass
+        prev_time = time.perf_counter()
         result_info = controller.read_info_with_unit(retry=False, fast_read=False)
         #pos = result_info[0]
-        print(f"Measured: {result_info[2]}mA") # current
-        print(f"Desired: {openloop_current_trajectory[index, :]}mA")
+        current_meas[index,:] = result_info[2]
+    except:
+        traceback.print_exc()
+        break
+
+controller.torque_off()
+
+# plot desired vs measured current
+time_array = np.arange(openloop_current_trajectory.shape[0])*dt
+fig, axs = plt.subplots(n_motors,1, figsize=(8,12), sharex=True)
+for i in range(n_motors):
+    axs[i].plot(time_array, openloop_current_trajectory[:,i], label='Desired current (mA)')
+    axs[i].plot(time_array, current_meas[:,i], label='Measured current (mA)')
+    axs[i].set_title(f'Motor {i} Current')
+    axs[i].set_ylabel('Current (mA)')
+    axs[i].legend()
+axs[-1].set_xlabel('Time (s)')
+plt.tight_layout()
+plt.show()
+
 
 
 

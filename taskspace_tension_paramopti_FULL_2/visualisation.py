@@ -31,31 +31,31 @@ def history_plot(pcc_arm,u_bound,xyz_traj=None, save=False, opti_index=None, sim
 
         fig.suptitle(f"States and Torques for Segment")
 
-        axs[0, i].set_title(f"Segment {i+1} Theta")
-        # theta
-        axs[0, i].plot(time, history[:,0+2*i], label=r'$\theta$', linestyle='-', color='b')
+        axs[0, i].set_title(f"Segment {i+1} Phi")
+        # phi
+        axs[0, i].plot(time, history[:,0+2*i], label=r'$\phi$', linestyle='-', color='b')
         axs[0, i].set_ylabel('rad')
         axs[0, i].tick_params(axis='y', labelcolor='b')
         axs[0, i].set_ylim(-1.2*np.pi, 1.2*np.pi)
         #axs[0, i].legend()
-        # theta dot
+        # phi dot
         ax2 = axs[0, i].twinx() 
-        ax2.plot(time, history[:,0+2*pcc_arm.num_segments+2*i], label=r'$\dot{\theta}$', linestyle='-', color='c')
+        ax2.plot(time, history[:,0+2*pcc_arm.num_segments+2*i], label=r'$\dot{\phi}$', linestyle='-', color='c')
         ax2.set_ylabel('rad/s')
         ax2.tick_params(axis='y', labelcolor='c')
         #ax2.legend()
     
 
-        axs[1, i].set_title(f"Segment {i+1} Phi")
-        # phi
-        axs[1, i].plot(time, history[:,1+2*i], label=r'$\phi$', linestyle='-', color='b')
+        axs[1, i].set_title(f"Segment {i+1} Theta")
+        # theta
+        axs[1, i].plot(time, history[:,1+2*i], label=r'$\theta$', linestyle='-', color='b')
         axs[1, i].set_ylabel('rad')
         axs[1, i].tick_params(axis='y', labelcolor='b')
         axs[1, i].set_ylim(-1.2*np.pi, 1.2*np.pi)
         #axs[1, i].legend()
-        # phi dot
+        # theta dot
         ax2 = axs[1, i].twinx() 
-        ax2.plot(time, history[:,1+2*pcc_arm.num_segments+2*i], label=r'$\dot{\phi}$', linestyle='-', color='c')
+        ax2.plot(time, history[:,1+2*pcc_arm.num_segments+2*i], label=r'$\dot{\theta}$', linestyle='-', color='c')
         ax2.set_ylabel('rad/s')
         ax2.tick_params(axis='y', labelcolor='c')
         #ax2.legend()

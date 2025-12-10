@@ -187,7 +187,7 @@ def pcc_dynamics(arm,q, q_dot, tips, jacobians,water=False):
 
     G_integrand = (m_buoy-m) * sum(ca.dot(g_vec, tip) for tip in tips)
     M_integrand = (m+m_displaced) * (J.T @ J)
-    I_phi = 1e-3  # regularization to avoid singularities
+    I_phi = 1e-5  # regularization to avoid singularities
     M_reg = ca.DM.zeros(2*num_segments, 2*num_segments)
     for i in range(num_segments):
         M_reg[2*i, 2*i] = I_phi
@@ -235,9 +235,15 @@ def pcc_dynamics(arm,q, q_dot, tips, jacobians,water=False):
 
     M_term= M_func(q0[:2*num_segments],p_adaptative[0])+1e-3* ca.DM.eye(2*num_segments)
     C_term= C_vec_func(q0[:2*num_segments], q0[2*num_segments:], p_adaptative[0])
-    G_term= G_func(q0[:2*num_segments], p_adaptative[0])
+    G_term= G_func(x[:2*num_segments], p_adaptative[0])
     D_term= D_func(q0[:2*num_segments], q0[2*num_segments:], p_adaptative[1:arm.num_segments+arm.num_segments+1]) @ q_dot_from_x
     K_term= K @ q_from_x
+
+    # M_term= M_func(x[:2*num_segments],p_adaptative[0])+1e-3* ca.DM.eye(2*num_segments)
+    # C_term= C_vec_func(x[:2*num_segments], x[2*num_segments:], p_adaptative[0])
+    # G_term= G_func(x[:2*num_segments], p_adaptative[0])
+    # D_term= D_func(x[:2*num_segments], x[2*num_segments:], p_adaptative[1:arm.num_segments+arm.num_segments+1]) @ q_dot_from_x
+    # K_term= K @ q_from_x
   
     J_tendon = ca.SX.zeros((3*num_segments, 2*num_segments))
     u_tendon = ca.SX.sym('u', 3*num_segments)
@@ -246,8 +252,9 @@ def pcc_dynamics(arm,q, q_dot, tips, jacobians,water=False):
         for k in range(3): #number of tendons
             phi =q0[2*i]
             theta = q0[1+2*i]
+
             J_tendon[k+3*i,2*i] = -theta*arm.r_d*ca.sin(arm.sigma_k[k+3*i]-phi)
-            J_tendon[k+3*i,2*i+1] = arm.r_d*ca.cos(arm.sigma_k[k+3*i]-phi)
+            J_tendon[k+3*i,2*i+1] = -arm.r_d*ca.cos(arm.sigma_k[k+3*i]-phi) # minus sign?
 
     #added for speed
     rhs = J_tendon.T @ u_tendon - C_term - G_term - D_term - K_term
