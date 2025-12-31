@@ -274,7 +274,7 @@ def update_line_3seg(num, points1, points2, points3, lines,
     lines[2].set_3d_properties(pts3[2, :])
 
     # Update title
-    ax.set_title(f'Kite 3D Trajectory Animation - Time: {num*dt:.2f} s')
+    ax.set_title(f'PCC Arm Simulation - Time: {num*dt:.2f} s')
 
     # Update tip trajectory with colormap along time
     if colored_line:
@@ -352,9 +352,9 @@ def animate_3d_2seg(pcc_arm, history, xyz_traj=None, save=False, opti_index=None
 
     # Setting the Axes properties
     max_length = np.sum(pcc_arm.L_segs)
-    ax.set(xlim3d=(-1.1 * max_length, 1.1 * max_length), xlabel='X')
-    ax.set(ylim3d=(-1.1 * max_length, 1.1 * max_length), ylabel='Y')
-    ax.set(zlim3d=(-1.1 * max_length, 1.1 * max_length), zlabel='Z')
+    ax.set(xlim3d=(-1.1 * max_length, 1.1 * max_length), xlabel='X (m)')
+    ax.set(ylim3d=(-1.1 * max_length, 1.1 * max_length), ylabel='Y (m)')
+    ax.set(zlim3d=(-1.1 * max_length, 1.1 * max_length), zlabel='Z (m)')
 
     # add target trajectory if provided
     if xyz_traj is not None:
@@ -397,7 +397,7 @@ def update_line_2seg(num, points1, points2, lines,
     lines[1].set_3d_properties(pts2[2, :])
 
     # Update title
-    ax.set_title(f'Kite 3D Trajectory Animation - Time: {num*dt:.2f} s')
+    ax.set_title(f'PCC Arm Simulation - Time: {num*dt:.2f} s')
 
     # Update tip trajectory with colormap along time
     if colored_line:

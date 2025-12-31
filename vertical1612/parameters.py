@@ -27,7 +27,7 @@ rho_air = 1.225 #density of air
 rho_liquid = rho_water  # density of the surrounding fluid
 
 
-horizon_time = 2  #seconds
+horizon_time = 3  #seconds
 dt = 0.1  #seconds
 
 num_segments = 2
@@ -36,14 +36,14 @@ MPC_PARAMETERS = {
     "N": int(np.ceil(horizon_time/dt)),
     "Q":  np.diag([5e2]*3 + [1e-2]*2*num_segments),
     "Qf": np.diag([5e2]*3 + [1e-2]*2*num_segments),  # stronger terminal weight helps convergence
-    "R": 0.5e-3*np.eye(3*num_segments),
+    "R": 1e-5*np.eye(3*num_segments),
     "u_bound": [0,100],#[0,tension_bound],
-    "N_p_adaptative": 2, #number of previous steps to consider for parameter estimation
+    "N_p_adaptative": 20, #number of previous steps to consider for parameter estimation
 }
 if num_segments ==3:
     SIM_PARAMETERS = {
         "dt": dt,
-        "T": 50,#180
+        "T": 40,#180
         "x0": np.array([ # phi, theta
             np.deg2rad(1e1), np.deg2rad(1e1), np.deg2rad(1e1), np.deg2rad(1e1), np.deg2rad(1e1), np.deg2rad(1e1), # phi is angle at base, theta is curvature
             0, 0, 0, 0, 0, 0
@@ -56,17 +56,17 @@ if num_segments ==3:
 elif num_segments ==2:
     SIM_PARAMETERS = {
         "dt": dt,
-        "T": 30,#180
+        "T": 40,#180
         "x0": np.array([ # phi, theta
             np.deg2rad(1e1), np.deg2rad(1e1), # segment 1
             np.deg2rad(1e1), np.deg2rad(1e1), # segment 2
             0, 0, 0, 0
         ]),
         "T_loop": 15,  # seconds
-        "shape": 'lemniscate', # "rectangle", "circle", "lemniscate"
-        "radius_trajectory": 0.4*L, #0.4*L
-        "center_trajectory": np.array([1, 0, 1.4])*L,#np.array([1, 0, 1.4])*L, 
-        "rotation_angles_trajectory": np.array([np.deg2rad(0), np.deg2rad(60), np.deg2rad(0)]),#np.array([np.deg2rad(0), np.deg2rad(60), np.deg2rad(0)]),
+        "shape": 'circle', # "rectangle", "circle", "lemniscate"
+        "radius_trajectory": 1*L, #0.4*L
+        "center_trajectory": np.array([0, 0, 1.4])*L,#np.array([1, 0, 1.4])*L, 
+        "rotation_angles_trajectory": np.array([np.deg2rad(0), np.deg2rad(0), np.deg2rad(0)]),#np.array([np.deg2rad(0), np.deg2rad(60), np.deg2rad(0)]),
     }
 
 # # round loop:

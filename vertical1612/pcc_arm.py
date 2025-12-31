@@ -46,7 +46,7 @@ class PCCSoftArm:
 
         # compute the dynamics
         self.dynamics_func = pcc_dynamics(self,q, q_dot, tips, jacobians,model="air")
-        dynamics_func_sim = pcc_dynamics(self,q, q_dot, tips, jacobians,model="broken_tendon")
+        dynamics_func_sim = pcc_dynamics(self,q, q_dot, tips, jacobians,model="water")
         print("Dynamics done")
         # create integrators
         self.integrator = dynamics2integrator(self,self.dynamics_func)

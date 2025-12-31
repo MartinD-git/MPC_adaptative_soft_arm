@@ -83,7 +83,7 @@ def main():
 
 # Update params
                 prev_params = pcc_arm.history_adaptive_param[:,pcc_arm.history_index-1]
-                if (count<100) and (pcc_arm.history_index > (MPC_PARAMETERS['N_p_adaptative']+10)):
+                if (count<500) and (pcc_arm.history_index > (MPC_PARAMETERS['N_p_adaptative']+100)):
                     start_idx = pcc_arm.history_index-1 - MPC_PARAMETERS['N_p_adaptative']
                     end_idx = pcc_arm.history_index-1
 
@@ -96,18 +96,11 @@ def main():
                     if error>1e4:
                         break
 
-                    if (error > 0.001) and (pcc_arm.history_index > opti_index[-1]+5) :  # only optimize if error is significant
+                    if (error > 0.001) and (pcc_arm.history_index > opti_index[-1]+30) :  # only optimize if error is significant
                         opti_index.append(pcc_arm.history_index)
                         print(prev_params)
                         solution = param_solver(x0=prev_params,p=adaptative_solver_parameters, lbx=lb_adaptive, ubx=ub_adaptive)
                         param_sol = np.array(solution['x']).flatten()
-                        
-                        print(f"Adaptative parameters optimized at step {pcc_arm.history_index} with error {error:.5f}: ", param_sol)
-                        '''prev_mean = 1
-                        prev_mean = min(prev_mean, len(opti_index)-1)
-                        gamma = np.power(0.7, np.arange(prev_mean))
-                        gamma = gamma / np.sum(gamma)
-                        param_sol = np.sum(gamma * pcc_arm.history_adaptive_param[:, opti_index[-prev_mean:]], axis=1)'''
                         count+=1
                     else:
                         param_sol = prev_params
@@ -151,17 +144,6 @@ def main():
     print("Max computation time per MPC step: ", np.max(loop_time), "ms")
     print("Min computation time per MPC step: ", np.min(loop_time), "ms")
 
-    # print some Mfunc and Dfunc values
-    # q_test = pcc_arm.history[:2*pcc_arm.num_segments,50]
-    # q_dot_test = pcc_arm.history[2*pcc_arm.num_segments:4*pcc_arm.num_segments,50]
-    # q_adapt_test = pcc_arm.history_adaptive_param[:,50]
-    # M_test = pcc_arm.M_func(q_test, q_adapt_test[0])
-    # D_test = pcc_arm.D_func(q_test, q_dot_test, q_adapt_test[1:pcc_arm.num_segments+pcc_arm.num_segments+1])
-    # print("M_func test output:", M_test)
-    # print("D_func test output:", D_test)
-
-
-
     history_plot(pcc_arm,MPC_PARAMETERS['u_bound'],dottet_plotting_traj, save=save,opti_index=opti_index, sim_parameters=SIM_PARAMETERS)
 
 
@@ -179,7 +161,7 @@ def create_adaptative_parameters_solver_SQP(arm,N):
     for i in range(N):
         p_global = ca.vertcat(state_history[:,-(i+2)], p_adaptative)
         q_pred = arm.integrator(x0=state_history[:,-(i+2)], u=u_history[:,-(i+2)], p_global=p_global)['xf']
-        cost += ca.sumsqr(q_pred - state_history[:,-(i+1)])  #prediction errorweights @ 
+        cost += ca.sumsqr(q_pred - state_history[:,-(i+1)])  #prediction errorweights 
 
     weights_difference = ca.diag([1e-3]*1 + [1e-3]*arm.num_segments + [1e-3]*arm.num_segments)  #weight more the mass and stiffness changes
     cost +=  ca.sumsqr(weights_regul @ p_adaptative)
@@ -187,27 +169,13 @@ def create_adaptative_parameters_solver_SQP(arm,N):
 
     nlp = {'x': p_adaptative, 'p': p, 'f': cost}
 
-    # SQP
-    # opts = {
-    #     #'jit': True,
-    #     #'compiler': 'shell',
-    #     #'jit_options': {'flags': ['-O2']}, 
-    #     'qpsol': 'qrqp',          #QP solverqrqp, osqp, qpoases
-    #     #'qpsol_options': {'print_iter': False, 'print_header': False},
-    #     #'hessian_approximation': 'limited-memory',
-    #     #'max_iter': 2,
-    #     #'print_time': 0,
-    #     #'print_header': False,
-    #     #'print_iteration': False
-    # }
     opts = {
         # "jit": True,                   # Enable JIT compilation
-
         # "compiler": "shell",           # Use system compiler (gcc/clang)
         # "jit_options": {"flags": ["-O2"]}, # Maximum optimization
         'print_time': 0,
         'ipopt.print_level': 0,
-        'ipopt.max_iter': 5,
+        'ipopt.max_iter': 2,
     }
 
     #solver = ca.nlpsol('adaptative_solver', 'sqpmethod', nlp, opts)
