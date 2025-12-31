@@ -67,7 +67,7 @@ def history_plot(pcc_arm,u_bound,xyz_traj=None, save=False, opti_index=None, sim
             axs[2, i].plot(time, history_u_tendon[:,3*i+k], label=labels[k], linestyle='-', color=color[k])
         axs[2,i].set_title(f'Segment {i+1}')
         axs[2,i].set_xlabel('Time [s]')
-        axs[2,i].set_ylabel('N')
+        axs[2,i].set_ylabel('Force [N]')
         axs[2,i].set_ylim(0, u_bound[1]*1.1)
         axs[2,i].legend()
 
@@ -79,7 +79,7 @@ def history_plot(pcc_arm,u_bound,xyz_traj=None, save=False, opti_index=None, sim
             axs[3, i].plot(time, history_u_tendon_current[:,3*i+k], label=labels[k], linestyle='-', color=color[k])
         axs[3,i].set_title(f'Segment {i+1}')
         axs[3,i].set_xlabel('Time [s]')
-        axs[3,i].set_ylabel('N')
+        axs[3,i].set_ylabel('Current [mA]')
         axs[3,i].set_ylim(0, 1.6*1000)
         axs[3,i].legend()
 

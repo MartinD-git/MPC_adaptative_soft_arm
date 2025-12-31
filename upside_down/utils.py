@@ -4,9 +4,11 @@ This script defines basic functions used across the project.
 
 import casadi as ca
 import numpy as np
-import matplotlib.pyplot as plt
 
 def sinc_cosc(u, eps=1e-4):
+    '''
+    Compute sinc(u) and cosc(u) with series expansion around 0 for numerical stability.
+    '''
     # Precompute powers
     u2 = u*u
     u4 = u2*u2
@@ -27,6 +29,9 @@ def sinc_cosc(u, eps=1e-4):
     return sinc_val, cosc_val
 
 def pcc_segment_transform(s_var, phi, theta, L, eps=1e-4):
+    '''
+    Compute the homogeneous transformation matrix of a PCC segment at normalized length s_var (0 to 1),
+    '''
     u  = s_var*theta
     cp = ca.cos(phi); sp = ca.sin(phi)
     cu = ca.cos(u);   su = ca.sin(u)
@@ -51,7 +56,7 @@ def pcc_segment_transform(s_var, phi, theta, L, eps=1e-4):
 
 def pcc_forward_kinematics(s, q, L_segs,num_segments):
     '''
-    Compute the forward kinematics of the 3-segment PCC robot arm.
+    Compute the forward kinematics of the n-segment PCC robot arm.
     '''
     if num_segments == 2:
         L1, L2 = L_segs[0], L_segs[1]
@@ -146,7 +151,9 @@ def shape_function(q, tips,s):
 
 
 def pcc_dynamics(arm,q, q_dot, tips, jacobians,water=False):
-
+    '''
+    Compute the dynamics of the PCC robot arm.
+    '''
     m = arm.m
 
     num_segments = arm.num_segments
@@ -181,9 +188,6 @@ def pcc_dynamics(arm,q, q_dot, tips, jacobians,water=False):
         D_fluid_gauss = gauss_legendre(ca.SX.zeros(2*num_segments, 2*num_segments), D_fluid, s)
     else:
         D_fluid_gauss = ca.SX.zeros(2*num_segments, 2*num_segments)
-            
-    # for i in range(num_segments):
-    #     D_integrand += (jacobians[i].T @ jacobians[i]) * d_eq[i]
 
     G_integrand = (m_buoy-m) * sum(ca.dot(g_vec, tip) for tip in tips)
     M_integrand = (m+m_displaced) * (J.T @ J)
@@ -207,7 +211,7 @@ def pcc_dynamics(arm,q, q_dot, tips, jacobians,water=False):
         # Add to list
         D_blocks.append(beta * K_block)
     D_stiffness = ca.diagcat(*D_blocks)
-    D = D_fluid_gauss + D_stiffness #+1e-5* ca.DM.eye(2*num_segments) # could add 0.5*M to have rayleigh damping but this works well for now
+    D = D_fluid_gauss + D_stiffness
 
     M_func = ca.Function('M_func', [q, p_adaptative[0]], [M])
     G_func = ca.Function('G_func', [q, p_adaptative[0]], [G])
@@ -238,12 +242,6 @@ def pcc_dynamics(arm,q, q_dot, tips, jacobians,water=False):
     G_term= G_func(x[:2*num_segments], p_adaptative[0])
     D_term= D_func(q0[:2*num_segments], q0[2*num_segments:], p_adaptative[1:arm.num_segments+arm.num_segments+1]) @ q_dot_from_x
     K_term= K @ q_from_x
-
-    # M_term= M_func(x[:2*num_segments],p_adaptative[0])+1e-3* ca.DM.eye(2*num_segments)
-    # C_term= C_vec_func(x[:2*num_segments], x[2*num_segments:], p_adaptative[0])
-    # G_term= G_func(x[:2*num_segments], p_adaptative[0])
-    # D_term= D_func(x[:2*num_segments], x[2*num_segments:], p_adaptative[1:arm.num_segments+arm.num_segments+1]) @ q_dot_from_x
-    # K_term= K @ q_from_x
   
     J_tendon = ca.SX.zeros((3*num_segments, 2*num_segments))
     u_tendon = ca.SX.sym('u', 3*num_segments)
@@ -285,7 +283,6 @@ def dynamics2integrator(pcc_arm,f,n_substeps=1):
         x  = x + (h/6.0)*(k1 + 2*k2 + 2*k3 + k4)
 
     xf = x
-    #xf[:2*pcc_arm.num_segments] += ca.DM.ones(2*pcc_arm.num_segments,1) *1e-5 # to avoid singularities
 
     F = ca.Function('pcc_F_map', [x0, u, p_global], [xf], ['x0', 'u','p_global'], ['xf'])
 

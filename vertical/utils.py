@@ -4,9 +4,11 @@ This script defines basic functions used across the project.
 
 import casadi as ca
 import numpy as np
-import matplotlib.pyplot as plt
 
 def sinc_cosc(u, eps=1e-4):
+    '''
+    Compute sinc(u) and cosc(u) with series expansion around 0 for numerical stability.
+    '''
     # Precompute powers
     u2 = u*u
     u4 = u2*u2
@@ -27,6 +29,9 @@ def sinc_cosc(u, eps=1e-4):
     return sinc_val, cosc_val
 
 def pcc_segment_transform(s_var, phi, theta, L, eps=1e-4):
+    '''
+    Compute the homogeneous transformation matrix of a PCC segment at normalized length s_var (0 to 1),
+    '''
     u  = s_var*theta
     cp = ca.cos(phi); sp = ca.sin(phi)
     cu = ca.cos(u);   su = ca.sin(u)
@@ -138,6 +143,9 @@ def shape_function(q, tips,s):
 
 
 def pcc_dynamics(arm,q, q_dot, tips, jacobians,model="air"):
+    '''
+    Compute the dynamics of the PCC robot arm.
+    '''
 
     m = arm.m
 
@@ -174,10 +182,6 @@ def pcc_dynamics(arm,q, q_dot, tips, jacobians,model="air"):
     else:
         D_fluid_gauss = ca.SX.zeros(2*num_segments, 2*num_segments)
 
-            
-    # for i in range(num_segments):
-    #     D_integrand += (jacobians[i].T @ jacobians[i]) * d_eq[i]
-
     G_integrand = (m_buoy-m) * sum(ca.dot(g_vec, tip) for tip in tips)
     M_integrand = (m+m_displaced) * (J.T @ J)
     I_phi = 1e-3  # regularization to avoid singularities
@@ -200,7 +204,7 @@ def pcc_dynamics(arm,q, q_dot, tips, jacobians,model="air"):
         # Add to list
         D_blocks.append(beta * K_block)
     D_stiffness = ca.diagcat(*D_blocks)
-    D = D_fluid_gauss + D_stiffness #+1e-5* ca.DM.eye(2*num_segments) # could add 0.5*M to have rayleigh damping but this works well for now
+    D = D_fluid_gauss + D_stiffness
 
     M_func = ca.Function('M_func', [q, p_adaptative[0]], [M])
     G_func = ca.Function('G_func', [q, p_adaptative[0]], [G])
@@ -228,7 +232,7 @@ def pcc_dynamics(arm,q, q_dot, tips, jacobians,model="air"):
 
     M_term= M_func(q0[:2*num_segments],p_adaptative[0])+1e-3* ca.DM.eye(2*num_segments)
     C_term= C_vec_func(q0[:2*num_segments], q0[2*num_segments:], p_adaptative[0])
-    G_term= G_func(x[:2*num_segments], p_adaptative[0])
+    G_term= G_func(q0[:2*num_segments], p_adaptative[0])
     D_term= D_func(q0[:2*num_segments], q0[2*num_segments:], p_adaptative[1:arm.num_segments+arm.num_segments+1]) @ q_dot_from_x
     K_term= K @ q_from_x
   
@@ -365,7 +369,6 @@ def rectangle_trajectory(width, height, center, rotation_angles, num_points):
     z=np.zeros_like(x)
 
     trajectory=np.vstack([x,y,z]).T
-   
 
     # Apply rotation if needed
     # precalculate cos and sin for each angle
@@ -401,7 +404,7 @@ def rectangle_trajectory(width, height, center, rotation_angles, num_points):
 
     return trajectory
 
-# eight trajectory generation
+# eight trajectory generation (lemniscate)
 
 def eight_trajectory(alpha, center, rotation_angles, num_points):
     '''

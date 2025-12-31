@@ -1,5 +1,3 @@
-
-
 '''
 
 torque(N) to current (A):
@@ -166,7 +164,7 @@ def create_adaptative_parameters_solver_SQP(arm,N):
     p_adaptative_prev = p[-arm.num_adaptive_params:]
 
     cost=0
-    weights_regul = ca.diag([1]*arm.num_adaptive_params)  #weight more the curvature states
+    weights_regul = ca.diag([1]*arm.num_adaptive_params)  #weight more some states
     for i in range(N):
         p_global = ca.vertcat(state_history[:,-(i+2)], p_adaptative)
         q_pred = arm.integrator(x0=state_history[:,-(i+2)], u=u_history[:,-(i+2)], p_global=p_global)['xf']
@@ -179,17 +177,18 @@ def create_adaptative_parameters_solver_SQP(arm,N):
     nlp = {'x': p_adaptative, 'p': p, 'f': cost}
 
     opts = {
-        # "jit": True,                   # Enable JIT compilation
-        # "compiler": "shell",           # Use system compiler (gcc/clang)
-        # "jit_options": {"flags": ["-O2"]},
+        # Uncomment to accelerate with JIT, set flag to -O3 for more speed but longer compile time
+        # "jit": True,
+        #"compiler": "shell",
+        #"jit_options": {"flags": ["-O2"]},
+        
         'print_time': 0,
         'ipopt.print_level': 0,
-        'ipopt.max_iter': 5,
+        'ipopt.max_iter': 2,
     }
 
-    #solver = ca.nlpsol('adaptative_solver', 'sqpmethod', nlp, opts)
     solver = ca.nlpsol('adaptative_solver', 'ipopt', nlp, opts)
-    return solver#, ca.Function('error_func', [p_adaptative, p], [cost])
+    return solver#, ca.Function('error_func', [p_adaptative, p], [cost]) # to get prediction error
 
 if __name__ == "__main__":
     main()

@@ -52,11 +52,11 @@ def main():
             p_adaptative_prev = p[-arm.num_adaptive_params:]
 
             cost=0
-            weights_regul = ca.diag([1]*arm.num_adaptive_params)  #weight more the curvature states
+            weights_regul = ca.diag([1]*arm.num_adaptive_params)  #weight more some states
             for i in range(N):
                 p_global = ca.vertcat(state_history[:,-(i+2)], p_adaptative)
                 q_pred = arm.integrator(x0=state_history[:,-(i+2)], u=u_history[:,-(i+2)], p_global=p_global)['xf']
-                cost += ca.sumsqr(q_pred - state_history[:,-(i+1)])  #prediction errorweights @ 
+                cost += ca.sumsqr(q_pred - state_history[:,-(i+1)])  #prediction errorweights 
 
             weights_difference = ca.diag([1e-3]*1 + [1e-3]*arm.num_segments + [1e-3]*arm.num_segments)  #weight more the mass and stiffness changes
             cost +=  ca.sumsqr(weights_regul @ p_adaptative)

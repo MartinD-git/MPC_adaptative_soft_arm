@@ -7,6 +7,9 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 def sinc_cosc(u, eps=1e-4):
+    '''
+    Compute sinc(u) and cosc(u) with series expansion around 0 for numerical stability.
+    '''
     # Precompute powers
     u2 = u*u
     u4 = u2*u2
@@ -27,6 +30,9 @@ def sinc_cosc(u, eps=1e-4):
     return sinc_val, cosc_val
 
 def pcc_segment_transform(s_var, phi, theta, L, eps=1e-4):
+    '''
+    Compute the homogeneous transformation matrix of a PCC segment at normalized length s_var (0 to 1),
+    '''
     u  = s_var*theta
     cp = ca.cos(phi); sp = ca.sin(phi)
     cu = ca.cos(u);   su = ca.sin(u)
@@ -138,7 +144,9 @@ def shape_function(q, tips,s):
 
 
 def pcc_dynamics(arm,q, q_dot, tips, jacobians,water=False):
-
+    '''
+    Compute the dynamics of the PCC robot arm.
+    '''
     m = arm.m
 
     num_segments = arm.num_segments

@@ -1,3 +1,7 @@
+'''
+This module contains utility functions to set up and use the ACADOS solver for the PCC arm model.
+'''
+
 
 from acados_template import AcadosOcp, AcadosOcpSolver, AcadosModel, AcadosSim, AcadosSimSolver
 import casadi as ca
@@ -9,7 +13,7 @@ def export_pcc_acados_model(pcc_arm, name="pcc_arm_ocp"):
 
     x = ca.SX.sym('x', nx)
     u = ca.SX.sym('u', nu)
-    p_global = ca.SX.sym('p', nx+pcc_arm.num_adaptive_params)  # q0
+    p_global = ca.SX.sym('p', nx+pcc_arm.num_adaptive_params)
 
     model = AcadosModel()
     model.name = name
@@ -43,26 +47,23 @@ def setup_ocp_solver(pcc_arm, MPC_PARAMETERS, N, Tf):
     ocp.solver_options.tf = Tf
     ocp.solver_options.nlp_solver_max_iter = 500
 
-    ocp.solver_options.globalization = 'MERIT_BACKTRACKING' # 'MERIT_BACKTRACKING' FUNNEL_L1PEN_LINESEARCH
-
+    ocp.solver_options.globalization = 'MERIT_BACKTRACKING' 
     ocp.solver_options.levenberg_marquardt = 1e-2
     ocp.solver_options.globalization_use_SOC = True
-    #ocp.solver_options.hpipm_mode = 'ROBUST'
+    ocp.solver_options.integrator_type = 'IRK'
+    # To play a bit:
     #ocp.solver_options.sim_method_num_stages = 4
     #ocp.solver_options.sim_method_num_steps = 10
-    ocp.solver_options.integrator_type = 'IRK'
 
-    # To play a bit:
     # property hpipm_mode
-
     # Mode of HPIPM to be used,
 
     # String in (‘BALANCE’, ‘SPEED_ABS’, ‘SPEED’, ‘ROBUST’).
 
     # Default: ‘BALANCE’.
 
-    # ease the NLP stopping a bit around where you plateau
-    ocp.solver_options.nlp_solver_tol_stat  = 5e-3#5e-4
+    # stop earlier if accuracy reached
+    ocp.solver_options.nlp_solver_tol_stat  = 5e-3
     ocp.solver_options.nlp_solver_tol_eq    = 1e-6
     ocp.solver_options.nlp_solver_tol_ineq  = 1e-6
     ocp.solver_options.nlp_solver_tol_comp  = 1e-6
@@ -120,12 +121,7 @@ def mpc_step_acados(ocp_solver, x0, q_goal, p_adaptive,N, u_bound):
     ocp_solver.set(N, 'yref', q_goal[:, N])  # terminal
 
     # solve
-    status = ocp_solver.solve()
-
-    if status != 0:
-        print(f"Acados returned status {status}. Returning current solution.")
-
-    u0 = ocp_solver.get(0, 'u')
+    u0 = ocp_solver.solve_for_x0(x0)
     x1 = ocp_solver.get(1, 'x')
 
     return u0, x1
