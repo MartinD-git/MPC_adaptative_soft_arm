@@ -66,8 +66,9 @@ def main():
 
             opts = {
                 'ipopt.max_iter': N_maxiter_list[run_idx],
-                "compiler": "shell",           # Use system compiler (gcc/clang)
-                "jit_options": {"flags": ["-O2"]}, # Maximum optimization
+                "jit": True,
+                "compiler": "shell",
+                "jit_options": {"flags": ["-O2"]},
                 'print_time': 0,
                 'ipopt.print_level': 0,
             }
@@ -175,11 +176,18 @@ def main():
         out_dir = "csv_and_plots_adapt/"
 
         ax = axes_dict['time']
-        ax.plot(np.arange(len(loop_time))*pcc_arm.dt,loop_time, color = colors[run_idx], label=labels[run_idx])
+        #ax.scatter(np.arange(len(loop_time))*pcc_arm.dt,loop_time, color = colors[run_idx], label=labels[run_idx], zorder = len(colors)-run_idx, s=2)
+        #ax.plot(np.arange(len(loop_time))*pcc_arm.dt,loop_time, color = colors[run_idx], label=labels[run_idx], zorder = len(colors)-run_idx, alpha = 0.6, linewidth=1)
+        N_mean = 20
+        mean_error = np.convolve(loop_time, np.ones(N_mean)/N_mean, mode='valid')
+        time_axis = np.arange(len(loop_time))*pcc_arm.dt
+        ax.plot(time_axis[-len(mean_error):], mean_error, color = colors[run_idx], zorder = len(colors)-run_idx, linewidth=1, label=labels[run_idx])
         ax.set_title("Computation time per MPC step")
         ax.set_yscale('log')
         ax.set_xlabel("Time [s]")
-        ax.set_ylabel("Time [ms]")
+        ax.set_ylabel("Time [ms] (averaged over "+str(N_mean*pcc_arm.dt)+"s)")
+        ax.legend()
+
         if save:
             plt.savefig(out_dir + "computation_time_per_MPC_step.png", dpi=200)
 
