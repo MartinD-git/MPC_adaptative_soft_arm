@@ -30,7 +30,7 @@ import matplotlib.pyplot as plt
 
 def main():
     N_adapt_list = [2, 10, 20, 100, 150]
-    #N_maxiter_list = [1, 2, 4, 8, 100]
+    N_maxiter_list = [1, 2, 4, 8, 100]
     labels = [f'N_previous={n}' for n in N_adapt_list]
     #labels = [f'N_iter={n}' for n in N_maxiter_list]
     cmap = plt.get_cmap('plasma')
@@ -65,10 +65,11 @@ def main():
             nlp = {'x': p_adaptative, 'p': p, 'f': cost}
 
             opts = {
-                'ipopt.max_iter': N_adapt_list[run_idx],
-                "jit": True,
-                "compiler": "shell",
-                "jit_options": {"flags": ["-O2"]},
+                'ipopt.max_iter': 3,
+                #'ipopt.max_iter': N_maxiter_list[run_idx],
+                # "jit": True,
+                # "compiler": "shell",
+                # "jit_options": {"flags": ["-O2"]},
                 'print_time': 0,
                 'ipopt.print_level': 0,
             }
@@ -76,7 +77,7 @@ def main():
             solver = ca.nlpsol('adaptative_solver', 'ipopt', nlp, opts)
             return solver
 
-        #MPC_PARAMETERS['N_p_adaptative'] = N_adapt_list[run_idx]
+        MPC_PARAMETERS['N_p_adaptative'] = N_adapt_list[run_idx]
         start_time = time.perf_counter()
         num_iter = int(SIM_PARAMETERS['T']/SIM_PARAMETERS['dt'])
         N=MPC_PARAMETERS['N']
@@ -239,13 +240,13 @@ def main():
             axs = axes_dict['error']
             mean_error = np.convolve(q_error, np.ones(N_mean)/N_mean, mode='valid')
             axs[0].plot(time_axis[-len(mean_error):], mean_error, label=labels[run_idx], color = colors[run_idx])
-            axs[0].set_ylabel('Loop-Mean Error')
+            axs[0].set_ylabel('Loop-Mean Error joint space')
             axs[0].legend()
 
             mean_error = np.convolve(xyz_error, np.ones(N_mean)/N_mean, mode='valid')
             axs[1].plot(time_axis[-len(mean_error):], mean_error, label=labels[run_idx], color = colors[run_idx])
             axs[1].set_xlabel('Time [s]')
-            axs[1].set_ylabel('Loop-Mean Error [m]')
+            axs[1].set_ylabel('Loop-Mean Error task space[m]')
             axs[1].legend()
 
             # Add optimization vertical lines

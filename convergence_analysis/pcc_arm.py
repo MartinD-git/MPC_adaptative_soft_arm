@@ -68,8 +68,8 @@ class PCCSoftArm:
         self.history_index += 1
 
     def meas_error(self):
-        std_angle = np.deg2rad(1)
-        std_velocity = np.deg2rad(2.5)
+        std_angle = np.deg2rad(1)*0
+        std_velocity = np.deg2rad(2.5)*0
         return np.random.normal(0, [std_angle]*2*self.num_segments+[std_velocity]*2*self.num_segments, size=4*self.num_segments)
 
 
