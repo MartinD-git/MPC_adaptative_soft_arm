@@ -30,7 +30,7 @@ import matplotlib.pyplot as plt
 
 def main():
     N_adapt_list = [2, 10, 20, 100, 150]
-    N_maxiter_list = [1, 2, 4, 8, 100]
+    #N_maxiter_list = [1, 2, 4, 8, 100]
     labels = [f'N_previous={n}' for n in N_adapt_list]
     #labels = [f'N_iter={n}' for n in N_maxiter_list]
     cmap = plt.get_cmap('plasma')
@@ -65,7 +65,7 @@ def main():
             nlp = {'x': p_adaptative, 'p': p, 'f': cost}
 
             opts = {
-                'ipopt.max_iter': N_maxiter_list[run_idx],
+                'ipopt.max_iter': N_adapt_list[run_idx],
                 "jit": True,
                 "compiler": "shell",
                 "jit_options": {"flags": ["-O2"]},
