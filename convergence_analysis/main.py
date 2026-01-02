@@ -103,7 +103,6 @@ def main():
 
         opti_index = [0]
         loop_time=np.zeros(num_iter)
-        done= True
         # Simu loop
         with tqdm(total=num_iter*SIM_PARAMETERS['dt'], desc="MPC loop", bar_format='{l_bar}{bar}| {n:.2f}/{total_fmt} [{elapsed}<{remaining}, {postfix}]') as pbar:
             for t in range(num_iter):
@@ -130,7 +129,7 @@ def main():
 
     # Update params
                     prev_params = pcc_arm.history_adaptive_param[:,pcc_arm.history_index-1]
-                    if done and (pcc_arm.history_index > (MPC_PARAMETERS['N_p_adaptative']+100)):
+                    if (pcc_arm.history_index > (MPC_PARAMETERS['N_p_adaptative']+100)):
                         start_idx = pcc_arm.history_index-1 - MPC_PARAMETERS['N_p_adaptative']
                         end_idx = pcc_arm.history_index-1
 
@@ -139,20 +138,12 @@ def main():
                         p_states = states.flatten(order='F')
                         p_inputs = inputs.flatten(order='F')
                         adaptative_solver_parameters = np.concatenate((p_states, p_inputs, prev_params))
-                        error = np.mean(np.round(np.square(np.linalg.norm(pcc_arm.history[:, t-MPC_PARAMETERS['N_p_adaptative']:t-1] - pcc_arm.history_pred[:, t-MPC_PARAMETERS['N_p_adaptative']-1:t-2], axis=0)), decimals=4))
 
-                        if (error > 0) and (pcc_arm.history_index > opti_index[-1]+100) :  # only optimize if error is significant
+                        if (pcc_arm.history_index > opti_index[-1]+100) :  # only optimize if error is significant
                             opti_index.append(pcc_arm.history_index)
                             print(prev_params)
                             solution = param_solver(x0=prev_params,p=adaptative_solver_parameters, lbx=lb_adaptive, ubx=ub_adaptive)
                             param_sol = np.array(solution['x']).flatten()
-                            done=True
-                            print(f"Adaptative parameters optimized at step {pcc_arm.history_index} with error {error:.5f}: ", param_sol)
-                            '''prev_mean = 1
-                            prev_mean = min(prev_mean, len(opti_index)-1)
-                            gamma = np.power(0.7, np.arange(prev_mean))
-                            gamma = gamma / np.sum(gamma)
-                            param_sol = np.sum(gamma * pcc_arm.history_adaptive_param[:, opti_index[-prev_mean:]], axis=1)'''
                         else:
                             param_sol = prev_params
 
@@ -166,7 +157,7 @@ def main():
                     fk_time = (loop_time_2 - loop_time_1) * 1000
                     adapt_time = (loop_time_3 - loop_time_2) * 1000
                     total_time = (loop_time_3 - loop_time_0) * 1000
-                    loop_time[t] = total_time
+                    loop_time[t] = mpc_time + adapt_time
 
                     # Set the postfix with the calculated times
                     pbar.set_postfix(MPC=f'{mpc_time:.2f}ms', FK=f'{fk_time:.2f}ms', Adapt=f'{adapt_time:.2f}ms', Total=f'{total_time:.2f}ms', refresh=True)
@@ -186,6 +177,7 @@ def main():
         ax = axes_dict['time']
         ax.plot(np.arange(len(loop_time))*pcc_arm.dt,loop_time, color = colors[run_idx], label=labels[run_idx])
         ax.set_title("Computation time per MPC step")
+        ax.set_yscale('log')
         ax.set_xlabel("Time [s]")
         ax.set_ylabel("Time [ms]")
         if save:
