@@ -44,7 +44,7 @@ def main():
         Tf = N * SIM_PARAMETERS['dt']
         ocp_solver = setup_ocp_solver(pcc_arm, MPC_PARAMETERS, N, Tf)
         if adapt==1:
-            param_solver = create_adaptative_parameters_solver_SQP(pcc_arm, MPC_PARAMETERS['N_p_adaptative'])
+            param_solver = create_adaptative_parameters_solver(pcc_arm, MPC_PARAMETERS['N_p_adaptative'])
         #bounds:
         if pcc_arm.num_segments ==2:
             lb_adaptive = ca.vertcat(-0.9*pcc_arm.m,-0.9*pcc_arm.beta[0], -0.9*pcc_arm.beta[1], -0.9*pcc_arm.K[1,1], -0.9*pcc_arm.K[3,3])
@@ -154,7 +154,7 @@ def main():
             history_plot(pcc_arm,MPC_PARAMETERS['u_bound'],dottet_plotting_traj, save=save,opti_index=opti_index, sim_parameters=SIM_PARAMETERS)
 
 
-def create_adaptative_parameters_solver_SQP(arm,N):
+def create_adaptative_parameters_solver(arm,N):
 
     p_adaptative = ca.MX.sym('p_adaptative', arm.num_adaptive_params)
     p = ca.MX.sym('p', (4*arm.num_segments + 3*arm.num_segments)*(N+1)+arm.num_adaptive_params) #state, control, prev adaptative params
