@@ -63,7 +63,7 @@ def setup_ocp_solver(pcc_arm, MPC_PARAMETERS, N, Tf):
     # Default: ‘BALANCE’.
 
     # stop earlier if accuracy reached
-    ocp.solver_options.nlp_solver_tol_stat  = 5e-3
+    ocp.solver_options.nlp_solver_tol_stat  = 5e-4
     ocp.solver_options.nlp_solver_tol_eq    = 1e-6
     ocp.solver_options.nlp_solver_tol_ineq  = 1e-6
     ocp.solver_options.nlp_solver_tol_comp  = 1e-6
@@ -121,7 +121,12 @@ def mpc_step_acados(ocp_solver, x0, q_goal, p_adaptive,N, u_bound):
     ocp_solver.set(N, 'yref', q_goal[:, N])  # terminal
 
     # solve
-    u0 = ocp_solver.solve_for_x0(x0)
+    status = ocp_solver.solve()
+
+    if status != 0:
+        print(f"Acados returned status {status}. Returning current solution.")
+
+    u0 = ocp_solver.get(0, 'u')
     x1 = ocp_solver.get(1, 'x')
 
     return u0, x1
