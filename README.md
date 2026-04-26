@@ -2,6 +2,8 @@
 
 This repository contains all the code of my Autumn 2025 semester project.
 
+The final report and presentation are also available.
+
 The code has been run only on a windows machine using WSL (required for acados or JIT C compilation)
 
 The repository contains multiple folders having the same architecture:
@@ -23,3 +25,10 @@ other folders and scripts:
 - csv_and_plots_adapt\: folder where the figures and csv are saved
 - basic_controller.py: Openloop controller script to run for the robot arm using the Dynamixel XM430-W350 motors.
 - dynamixel_controller.py: Module to help control the motors
+
+Some gifs to appreciate the code in action:
+
+|  |  |
+|---|---|
+| <img src="images/eightadaptive.gif" width="500"> | <img src="images/squareadaptive.gif" width="500"> |
+| Eight adaptive example without disturbances | Square adaptive example with disturbance |
